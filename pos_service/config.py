@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     sentry_base_url: str = "http://sentry.local:8000"
     sentry_api_token: str = "replace-me"
+    sentry_mock: bool = False
 
     windcave_base_url: str = "https://sec.windcave.com/pxmi3/pos.aspx"
     windcave_user: str = "AvidMax"
