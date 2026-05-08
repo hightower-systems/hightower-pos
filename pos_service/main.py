@@ -1,10 +1,12 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
+from sqlalchemy.engine import Engine
 
 from pos_service import __version__
 from pos_service.config import Settings, get_settings
 from pos_service.db import get_engine
+from pos_service.routes import auth as auth_routes
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -21,10 +23,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     @app.get("/health")
-    def health() -> dict[str, str]:
-        with get_engine().connect() as conn:
+    def health(engine: Engine = Depends(get_engine)) -> dict[str, str]:
+        with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         return {"status": "ok", "version": __version__}
+
+    app.include_router(auth_routes.router)
 
     return app
 
