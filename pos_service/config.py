@@ -1,6 +1,5 @@
 from functools import lru_cache
 
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,7 +25,7 @@ class Settings(BaseSettings):
     windcave_pos_version: str = "1.0.0"
     windcave_currency: str = "USD"
     windcave_timezone: str = "US MST"
-    windcave_mode: str = Field(default="mock", pattern="^(mock|sandbox|production)$")
+    windcave_mock: bool = False
     windcave_poll_interval_ms: int = 1000
     windcave_max_poll_duration_s: int = 120
 
