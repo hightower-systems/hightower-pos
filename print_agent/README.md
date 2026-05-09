@@ -14,20 +14,38 @@ from any Origin other than the configured POS web app URL.
 | GET    | `/status`      | (none)                                    | Agent + printer status           |
 | POST   | `/test-print`  | (none)                                    | Print a small diagnostic receipt |
 
-## Install (manual, Phase 1)
+## Install (autostart, recommended)
 
-The Windows install in this phase is "double-click a .bat file." Phase 2
-will replace this with an autostart installer.
+The cashier doesn't have to think about the agent after install. The
+agent runs every time they log into Windows.
 
 1. Install Python 3.11+ from python.org (tick **Add Python to PATH**).
 2. Copy this folder to the cashier desktop, e.g. `C:\AvidMax\pos-print-agent\`.
-3. Edit `.env` (or copy from `.env.example`) with the POS web app URL
-   and the printer's USB ids if they differ from the Star TSP100
-   defaults.
-4. Double-click `start_print_agent.bat`. The first run creates a venv
+3. Right-click `install.bat` and choose **Run as administrator**. The
+   installer:
+   - Creates a Python virtual environment and installs dependencies.
+   - Copies `.env.example` to `.env` if one isn't there yet (edit
+     `.env` afterwards if the printer USB ids or POS web app URL
+     differ from defaults).
+   - Registers a Windows Task Scheduler task named **AvidMax POS Print
+     Agent** that launches the agent on every user logon, hidden
+     (no console window).
+   - Prints a small confirmation receipt to verify the wiring.
+4. Sign out and back in to start the agent automatically. To start it
+   now without signing out: `schtasks /Run /TN "AvidMax POS Print Agent"`.
+
+A green tray icon appears in the system tray once the agent is up.
+Right-click for a menu: **Test print**, **Reconnect printer**, **Quit**.
+
+## Install (manual)
+
+If you need to launch the agent without autostart (e.g. for debugging):
+
+1. Steps 1-2 above.
+2. Double-click `start_print_agent.bat`. The first run creates a venv
    and installs dependencies (~30 seconds); subsequent runs start
    immediately.
-5. Closing the black terminal window stops the agent.
+3. Closing the black terminal window stops the agent.
 
 ## Verify
 

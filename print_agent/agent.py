@@ -1,4 +1,5 @@
 import logging
+import os
 from datetime import UTC, datetime
 
 import uvicorn
@@ -165,10 +166,64 @@ def _bootstrap_printer(settings: Settings) -> None:
             log.warning("startup test print failed")
 
 
+def _maybe_start_tray(settings: Settings) -> None:
+    if not settings.tray_icon_enabled:
+        return
+    try:
+        from print_agent import tray
+    except Exception:
+        log.warning("tray icon dependencies missing; continuing without it")
+        return
+
+    def _online() -> bool:
+        return _printer.is_online() if _printer is not None else False
+
+    def _on_test_print() -> None:
+        if _printer is None:
+            return
+        _printer.print_text(
+            f"Tray test print\n{datetime.now(UTC).replace(tzinfo=None):%Y-%m-%d %H:%M:%S}\n",
+            cut=True,
+        )
+
+    def _on_reconnect() -> None:
+        if _printer is None:
+            return
+        _printer.close()
+        new_printer = StarTSP100.open_usb(
+            vendor_id=settings.printer_vendor_id,
+            product_id=settings.printer_product_id,
+            profile=settings.printer_profile,
+        )
+        set_printer(new_printer)
+
+    def _on_quit() -> None:
+        if _printer is not None:
+            try:
+                _printer.close()
+            except Exception:
+                log.exception("printer close on quit failed")
+        os._exit(0)
+
+    try:
+        icon = tray.build_tray_icon(
+            printer_online_getter=_online,
+            on_test_print=_on_test_print,
+            on_reconnect=_on_reconnect,
+            on_quit=_on_quit,
+        )
+        tray.run_in_thread(icon)
+    except Exception:
+        log.warning(
+            "tray icon could not be started (likely no display); continuing"
+        )
+
+
 def main() -> None:
     settings = get_settings()
     logging.basicConfig(level=settings.log_level)
     _bootstrap_printer(settings)
+    _maybe_start_tray(settings)
     uvicorn.run(
         create_app(settings),
         host=settings.listen_host,

@@ -33,6 +33,8 @@ dev = [
   "ruff>=0.3",
   "python-escpos>=3.0",
   "pyusb>=1.2",
+  "pystray>=0.19",
+  "Pillow>=10.0",
 ]
 
 [project.scripts]

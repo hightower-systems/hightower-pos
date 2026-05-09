@@ -4,3 +4,5 @@ python-escpos>=3.0
 pyusb>=1.2
 pydantic>=2.6
 pydantic-settings>=2.2
+pystray>=0.19
+Pillow>=10.0

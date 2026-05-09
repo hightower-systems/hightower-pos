@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     drawer_pulse_off_ms: int = 240
 
     print_test_on_startup: bool = True
+    tray_icon_enabled: bool = True
     log_level: str = "INFO"
 
 
