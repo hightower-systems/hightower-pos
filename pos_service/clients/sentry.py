@@ -152,11 +152,13 @@ class SentryClient:
         api_token: str,
         mock: bool = False,
         timeout_s: float = DEFAULT_TIMEOUT_S,
+        initial_backoff_s: float = INITIAL_BACKOFF_S,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._token = api_token
         self._mock = mock
         self._timeout_s = timeout_s
+        self._initial_backoff_s = initial_backoff_s
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "SentryClient":
@@ -306,7 +308,9 @@ class SentryClient:
         ) from last_exc
 
     async def _backoff(self, attempt: int) -> None:
-        await asyncio.sleep(INITIAL_BACKOFF_S * (2**attempt))
+        if self._initial_backoff_s <= 0:
+            return
+        await asyncio.sleep(self._initial_backoff_s * (2**attempt))
 
     @staticmethod
     def _raise_for_status(r: httpx.Response) -> None:

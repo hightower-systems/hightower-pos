@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from pos_service.auth import hash_password
+from pos_service.clients.sentry import SentryClient, get_sentry_client
+from pos_service.clients.windcave import WindcaveClient, get_windcave_client
 from pos_service.config import Settings, get_settings
 from pos_service.db import Base, get_db, get_engine, get_session_factory
 from pos_service.main import create_app
@@ -105,9 +107,36 @@ def client(
     def override_get_engine() -> Engine:
         return engine
 
+    def fast_sentry_client() -> SentryClient:
+        return SentryClient(
+            base_url=settings.sentry_base_url,
+            api_token=settings.sentry_api_token,
+            mock=settings.sentry_mock,
+            timeout_s=2.0,
+            initial_backoff_s=0.0,
+        )
+
+    def fast_windcave_client() -> WindcaveClient:
+        return WindcaveClient(
+            base_url=settings.windcave_base_url,
+            user=settings.windcave_user,
+            key=settings.windcave_key,
+            station=settings.windcave_station,
+            vendor_id=settings.windcave_vendor_id,
+            pos_name=settings.windcave_pos_name,
+            device_id=settings.windcave_device_id,
+            pos_version=settings.windcave_pos_version,
+            currency=settings.windcave_currency,
+            mock=settings.windcave_mock,
+            timeout_s=2.0,
+            initial_backoff_s=0.0,
+        )
+
     app.dependency_overrides[get_settings] = override_settings
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_engine] = override_get_engine
+    app.dependency_overrides[get_sentry_client] = fast_sentry_client
+    app.dependency_overrides[get_windcave_client] = fast_windcave_client
     get_session_factory.cache_clear()
     get_engine.cache_clear()
     get_settings.cache_clear()
