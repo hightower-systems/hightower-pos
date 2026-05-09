@@ -1,6 +1,9 @@
 import { type UserInfo, useLogout } from "../api/auth";
 import { Cart } from "../components/Cart";
 import { CartTotals } from "../components/CartTotals";
+import { PayPanel } from "../components/PayPanel";
+import { PaymentInFlight } from "../components/PaymentInFlight";
+import { PaymentResult } from "../components/PaymentResult";
 import { ScanInput } from "../components/ScanInput";
 import { StatusStrip } from "../components/StatusStrip";
 
@@ -55,7 +58,10 @@ export function RegisterScreen({ user, onSignedOut }: Props) {
           <Cart />
         </div>
         <CartTotals />
+        <PayPanel />
       </main>
+      <PaymentInFlight />
+      <PaymentResult />
     </div>
   );
 }
