@@ -7,6 +7,7 @@ from pos_service import __version__
 from pos_service.config import Settings, get_settings
 from pos_service.db import get_engine
 from pos_service.routes import auth as auth_routes
+from pos_service.routes import prices as prices_routes
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -29,6 +30,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"status": "ok", "version": __version__}
 
     app.include_router(auth_routes.router)
+    app.include_router(prices_routes.router)
 
     return app
 
