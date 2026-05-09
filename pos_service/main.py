@@ -10,6 +10,7 @@ from pos_service.routes import auth as auth_routes
 from pos_service.routes import checkout as checkout_routes
 from pos_service.routes import items as items_routes
 from pos_service.routes import prices as prices_routes
+from pos_service.routes import refunds as refunds_routes
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -35,6 +36,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(items_routes.router)
     app.include_router(prices_routes.router)
     app.include_router(checkout_routes.router)
+    app.include_router(refunds_routes.router)
 
     return app
 
