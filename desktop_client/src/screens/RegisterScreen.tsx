@@ -5,6 +5,11 @@ import { CashTenderModal } from "../components/CashTenderModal";
 import { PayPanel } from "../components/PayPanel";
 import { PaymentInFlight } from "../components/PaymentInFlight";
 import { PaymentResult } from "../components/PaymentResult";
+import { RefundConfirmModal } from "../components/RefundConfirmModal";
+import { RefundInFlight } from "../components/RefundInFlight";
+import { RefundLookupModal } from "../components/RefundLookupModal";
+import { RefundResult } from "../components/RefundResult";
+import { RegisterActions } from "../components/RegisterActions";
 import { ScanInput } from "../components/ScanInput";
 import { StatusStrip } from "../components/StatusStrip";
 
@@ -54,6 +59,7 @@ export function RegisterScreen({ user, onSignedOut }: Props) {
         signOutPending={logout.isPending}
       />
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4 sm:p-6">
+        <RegisterActions />
         <ScanInput />
         <div className="flex-1 overflow-auto">
           <Cart />
@@ -64,6 +70,10 @@ export function RegisterScreen({ user, onSignedOut }: Props) {
       <CashTenderModal />
       <PaymentInFlight />
       <PaymentResult />
+      <RefundLookupModal />
+      <RefundConfirmModal />
+      <RefundInFlight />
+      <RefundResult />
     </div>
   );
 }
