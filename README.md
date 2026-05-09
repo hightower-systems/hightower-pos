@@ -12,7 +12,9 @@ Three components, one repo:
 
 ## Quick start (local dev)
 
-Requires Python 3.11+.
+Requires Python 3.11+ and Node 20+.
+
+POS Service:
 
 ```bash
 pip install -e ".[dev]"
@@ -20,15 +22,30 @@ cp .env.example .env
 # edit .env
 
 alembic upgrade head
-uvicorn pos_service.main:app --host 0.0.0.0 --port 8080 --reload
+uvicorn pos_service.main:app --host 0.0.0.0 --port 8081 --reload
 ```
 
-Health check: `curl http://localhost:8080/health`.
+Health check: `curl http://localhost:8081/health`. Port 8081 (not 8080)
+keeps the local Sentry dev server free on its conventional port.
 
 The migration seeds an `admin` user with password `admin` and
 `must_change_password=true`. First login forces a password change before
 any other endpoint accepts the session. Add additional cashiers via
 `python -m pos_service create-user <name> --display-name "<Display>"`.
+
+Desktop Client (React, in a second terminal):
+
+```bash
+cd desktop_client
+npm install
+npm run dev
+```
+
+Vite serves the cashier UI on `http://localhost:5173` and proxies
+`/api/*` to the POS Service on `:8081` and `/print-agent/*` to the
+local Print Agent on `127.0.0.1:9100`. In production the POS Service
+mounts `desktop_client/dist/` at `/` via FastAPI `StaticFiles`, so the
+same relative URLs work without a proxy.
 
 ## Deploy (Docker)
 
@@ -74,8 +91,18 @@ pytest -q
 ruff check .
 ```
 
-CI runs lint + the alembic migration + the full pytest suite on every
-push and pull request via `.github/workflows/ci.yml`.
+Desktop Client tests:
+
+```bash
+cd desktop_client
+npm test
+npm run typecheck
+npm run build
+```
+
+CI runs lint + the alembic migration + the full pytest suite plus the
+desktop_client typecheck/vitest/Vite build on every push and pull
+request via `.github/workflows/ci.yml`.
 
 ## License
 
