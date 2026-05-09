@@ -68,6 +68,29 @@ The healthcheck polls `/health` every 30 seconds. Live status:
 docker compose ps
 ```
 
+### Pricing data sources
+
+Two paths write into the local `pos_prices` SQLite cache. The cashier
+register reads only from the cache, so a Fabric outage or a missed CSV
+import never blocks a sale -- prices just age until the next refresh.
+
+**Microsoft Fabric (routine):** the POS Service polls Fabric every
+`FABRIC_SYNC_INTERVAL_S` seconds (default 4 hours), upserts the full
+catalog into `pos_prices`. Configured via `FABRIC_CONNECTION_STRING` and
+the `[fabric]` install extra (`pip install -e ".[fabric]"` for the
+`pyodbc` driver). An empty connection string puts the client in mock
+mode and the polling task does not start, so dev machines without
+Azure credentials run with whatever the most recent CSV import left
+behind.
+
+**CSV (manual override):** `POST /api/prices/import` accepts a
+`sku,price` CSV and writes the same `pos_prices` table. Useful for a
+one-off correction without waiting on the next Fabric poll.
+
+Whichever wrote a given SKU most recently wins. The `updated_at`
+column on `pos_prices` records the last write so an admin can spot
+stale rows.
+
 ### Reconciliation
 
 If a Sentry write fails after Windcave already approved a payment, the

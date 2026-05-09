@@ -39,6 +39,7 @@ class Settings(BaseSettings):
 
     fabric_connection_string: str = ""
     fabric_query_timeout_s: int = 30
+    fabric_sync_interval_s: int = 14400
 
     store_name: str = "AvidMax"
     store_address_line_1: str = ""
