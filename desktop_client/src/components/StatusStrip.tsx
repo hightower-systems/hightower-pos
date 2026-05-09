@@ -16,13 +16,13 @@ export function StatusStrip({ cashier, onSignOut, signOutPending = false }: Prop
   const printer = printAgent.data;
 
   return (
-    <header className="flex flex-wrap items-center gap-4 border-b border-slate-800 bg-slate-900 px-6 py-3 text-sm">
-      <span className="text-base font-semibold tracking-tight text-slate-100">
-        AvidMax POS
+    <header className="flex flex-wrap items-center gap-4 bg-slate-900 px-6 py-3 text-sm">
+      <span className="font-mono text-base font-bold uppercase tracking-wider text-brand-cream">
+        Hightower POS
       </span>
-      <span className="text-slate-400">{cashier.display_name}</span>
+      <span className="text-slate-300">{cashier.display_name}</span>
       {deps.data && (
-        <span className="font-mono text-xs text-slate-500">
+        <span className="font-mono text-xs uppercase tracking-wider text-slate-400">
           {deps.data.terminal_id}
         </span>
       )}
@@ -50,7 +50,7 @@ export function StatusStrip({ cashier, onSignOut, signOutPending = false }: Prop
           type="button"
           onClick={onSignOut}
           disabled={signOutPending}
-          className="rounded border border-slate-700 px-3 py-1 text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+          className="rounded-card border border-slate-700 bg-slate-800 px-3 py-1 font-mono text-xs font-semibold uppercase tracking-wider text-brand-cream hover:bg-slate-700 disabled:opacity-50"
         >
           Sign out
         </button>
@@ -70,19 +70,24 @@ function Dot({ label, ok, detail }: DotProps) {
     ok === null
       ? "bg-slate-500"
       : ok
-      ? "bg-emerald-400"
-      : "bg-red-500";
+      ? "bg-status-success"
+      : "bg-status-danger";
   const status =
     ok === null ? "unknown" : ok ? "online" : "offline";
 
   return (
-    <span className="flex items-center gap-1.5" data-testid={`dot-${label.toLowerCase().replace(" ", "-")}`}>
+    <span
+      className="flex items-center gap-1.5"
+      data-testid={`dot-${label.toLowerCase().replace(" ", "-")}`}
+    >
       <span
         className={`inline-block h-2 w-2 rounded-full ${color}`}
         aria-label={`${label}: ${status}`}
       />
-      <span className="text-slate-300">{label}</span>
-      {detail && <span className="text-xs text-slate-500">{detail}</span>}
+      <span className="font-mono text-xs uppercase tracking-wider text-slate-300">
+        {label}
+      </span>
+      {detail && <span className="text-xs text-slate-400">{detail}</span>}
     </span>
   );
 }

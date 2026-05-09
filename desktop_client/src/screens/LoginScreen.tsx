@@ -33,21 +33,23 @@ export function LoginScreen({ onSuccess }: Props) {
   const errorMessage = friendlyError(login.error);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl"
+        className="w-full max-w-sm rounded-card border border-surface-border bg-surface-card p-8 shadow-lg"
         aria-label="Sign in"
       >
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-100">
-          AvidMax POS
+        <h1 className="mb-1 font-mono text-2xl font-bold uppercase tracking-wider text-ink">
+          Hightower POS
         </h1>
-        <p className="mb-6 text-sm text-slate-400">
-          Sign in to start the register.
+        <p className="mb-6 font-mono text-xs uppercase tracking-wider text-brand-copper">
+          Sign in to start the register
         </p>
 
         <label className="mb-4 block">
-          <span className="mb-1 block text-sm text-slate-300">Username</span>
+          <span className="mb-1 block font-mono text-xs font-semibold uppercase tracking-wider text-ink-muted">
+            Username
+          </span>
           <input
             type="text"
             value={username}
@@ -55,33 +57,35 @@ export function LoginScreen({ onSuccess }: Props) {
             autoFocus
             required
             autoComplete="username"
-            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-accent"
+            className="w-full rounded-card border border-surface-inputBorder bg-surface-input px-3 py-2 font-mono text-ink outline-none focus:border-brand-red"
           />
         </label>
 
         <label className="mb-6 block">
-          <span className="mb-1 block text-sm text-slate-300">Password</span>
+          <span className="mb-1 block font-mono text-xs font-semibold uppercase tracking-wider text-ink-muted">
+            Password
+          </span>
           <input
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
             autoComplete="current-password"
-            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-accent"
+            className="w-full rounded-card border border-surface-inputBorder bg-surface-input px-3 py-2 font-mono text-ink outline-none focus:border-brand-red"
           />
         </label>
 
         <button
           type="submit"
           disabled={login.isPending}
-          className="w-full rounded-lg bg-accent py-2 font-semibold text-accent-fg hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-[48px] w-full rounded-card bg-brand-red font-mono text-sm font-bold uppercase tracking-wider text-brand-cream hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {login.isPending ? "Signing in..." : "Sign in"}
         </button>
 
         {errorMessage && (
           <p
-            className="mt-4 rounded bg-red-900/40 px-3 py-2 text-sm text-red-200"
+            className="mt-4 rounded-card border border-status-danger/30 bg-status-danger/10 px-3 py-2 text-sm text-status-danger"
             role="alert"
           >
             {errorMessage}

@@ -13,7 +13,7 @@ describe("<App>", () => {
   it("shows the LoginScreen when /api/auth/me returns 401", async () => {
     renderWithQuery(<App />);
     expect(
-      await screen.findByRole("heading", { name: /avidmax pos/i }),
+      await screen.findByRole("heading", { name: /hightower pos/i }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
   });
