@@ -52,7 +52,7 @@ FINAL_APPROVED_XML = """<Scr>
   <TxnStatusId>8</TxnStatusId>
   <Complete>1</Complete>
   <RcptW>30</RcptW>
-  <Rcpt>          *----------EFTPOS----------*27 Mar 18 13:13       CHEQUESWIPE VISA          CARD 411111******1111AUTHORISATION         000289REFERENCE             029013PURCHASE          NZD1.00TOTAL             NZD1.00                 APPROVED                          PIN VERIFIED                  *----------------*       CUSTOMER COPY                          PLEASE RETAIN          FOR YOUR RECORDS</Rcpt>
+  <Rcpt>*-EFTPOS-* VISA 1111 AUTH 000289 NZD1.00 APPROVED</Rcpt>
   <Result>
     <AC>000289</AC>
     <AP>1</AP>

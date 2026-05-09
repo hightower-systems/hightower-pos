@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 import pytest
@@ -128,7 +128,7 @@ def _checkout_request(idem: str = "abc-123") -> CheckoutRequest:
         external_txn_ref="0000005400911209",
         cashier_id="mike",
         terminal_id="21235",
-        completed_at=datetime(2026, 5, 8, 14, 23, 11, tzinfo=timezone.utc),
+        completed_at=datetime(2026, 5, 8, 14, 23, 11, tzinfo=UTC),
         payment_summary=PaymentSummary(
             method="card",
             subtotal_cents=4990,
@@ -221,7 +221,7 @@ def _refund_request() -> RefundRequest:
         external_refund_ref="0000005400911999",
         cashier_id="mike",
         terminal_id="21235",
-        completed_at=datetime(2026, 5, 9, 10, 14, 2, tzinfo=timezone.utc),
+        completed_at=datetime(2026, 5, 9, 10, 14, 2, tzinfo=UTC),
         refund_summary=RefundSummary(
             method="card",
             subtotal_cents=-4990,
