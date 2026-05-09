@@ -25,6 +25,19 @@ const ROD: ItemLookupResponse = {
   ],
 };
 
+const ROD_TWO_WAREHOUSES: ItemLookupResponse = {
+  ...ROD,
+  availability: [
+    ROD.availability[0],
+    {
+      warehouse_id: "WH-AFC",
+      warehouse_name: "AFC",
+      qty_available: 7,
+      bins: [{ bin_id: "BIN-B1", bin_name: "B1", qty: 7 }],
+    },
+  ],
+};
+
 beforeEach(() => useCart.setState({ lines: [] }));
 afterEach(() => useCart.setState({ lines: [] }));
 
@@ -124,6 +137,26 @@ describe("<Cart>", () => {
     useCart.getState().addItem(ROD);
     renderWithQuery(<Cart />);
     expect(screen.queryByTestId("oversold-warning")).not.toBeInTheDocument();
+  });
+
+  it("hides the Split badge when only one warehouse is on file", () => {
+    useCart.getState().addItem(ROD);
+    renderWithQuery(<Cart />);
+    expect(
+      screen.queryByRole("button", { name: /split rod-100/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the Split badge when multiple warehouses exist and opens the modal on click", async () => {
+    useCart.getState().addItem(ROD_TWO_WAREHOUSES);
+    renderWithQuery(<Cart />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /split rod-100/i }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: /split rod-100/i }),
+    ).toBeInTheDocument();
   });
 });
 

@@ -136,6 +136,73 @@ describe("cart store", () => {
     useCart.getState().clear();
     expect(useCart.getState().lines).toEqual([]);
   });
+
+  it("splitLine replaces one line with N lines mapped to the supplied splits", () => {
+    useCart.getState().addItem(SAMPLE_ROD);
+    const id = useCart.getState().lines[0].id;
+    useCart.getState().setQuantity(id, 5);
+
+    useCart.getState().splitLine(id, [
+      { warehouse_id: "WH-STORE", bin_id: "BIN-A1", quantity: 3 },
+      { warehouse_id: "WH-AFC", bin_id: "BIN-B1", quantity: 2 },
+    ]);
+
+    const lines = useCart.getState().lines;
+    expect(lines).toHaveLength(2);
+    expect(lines.every((l) => l.sku === "ROD-100")).toBe(true);
+    expect(lines.every((l) => l.unit_price_cents === 19999)).toBe(true);
+    expect(lines.map((l) => l.warehouse_id).sort()).toEqual(["WH-AFC", "WH-STORE"]);
+
+    const store = lines.find((l) => l.warehouse_id === "WH-STORE")!;
+    const afc = lines.find((l) => l.warehouse_id === "WH-AFC")!;
+    expect(store.bin_id).toBe("BIN-A1");
+    expect(store.bin_name).toBe("A1");
+    expect(store.quantity).toBe(3);
+    expect(afc.bin_id).toBe("BIN-B1");
+    expect(afc.bin_name).toBe("B1");
+    expect(afc.quantity).toBe(2);
+    expect(new Set(lines.map((l) => l.id)).size).toBe(2);
+  });
+
+  it("splitLine drops zero-quantity rows from the result", () => {
+    useCart.getState().addItem(SAMPLE_ROD);
+    const id = useCart.getState().lines[0].id;
+    useCart.getState().setQuantity(id, 4);
+
+    useCart.getState().splitLine(id, [
+      { warehouse_id: "WH-STORE", bin_id: "BIN-A1", quantity: 4 },
+      { warehouse_id: "WH-AFC", bin_id: "BIN-B1", quantity: 0 },
+    ]);
+
+    const lines = useCart.getState().lines;
+    expect(lines).toHaveLength(1);
+    expect(lines[0].warehouse_id).toBe("WH-STORE");
+    expect(lines[0].quantity).toBe(4);
+  });
+
+  it("splitLine is a no-op when every supplied row has zero quantity", () => {
+    useCart.getState().addItem(SAMPLE_ROD);
+    const id = useCart.getState().lines[0].id;
+    const before = useCart.getState().lines;
+
+    useCart.getState().splitLine(id, [
+      { warehouse_id: "WH-STORE", bin_id: "BIN-A1", quantity: 0 },
+      { warehouse_id: "WH-AFC", bin_id: "BIN-B1", quantity: 0 },
+    ]);
+
+    expect(useCart.getState().lines).toEqual(before);
+  });
+
+  it("splitLine ignores unknown ids", () => {
+    useCart.getState().addItem(SAMPLE_ROD);
+    const before = useCart.getState().lines;
+
+    useCart.getState().splitLine("does-not-exist", [
+      { warehouse_id: "WH-STORE", bin_id: "BIN-A1", quantity: 1 },
+    ]);
+
+    expect(useCart.getState().lines).toEqual(before);
+  });
 });
 
 describe("computeTotals", () => {

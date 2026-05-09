@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { type CartLine as CartLineType, formatCents, useCart } from "../store/cart";
 import { BinPicker } from "./BinPicker";
+import { SplitLineModal } from "./SplitLineModal";
 import { WarehousePicker } from "./WarehousePicker";
 import { warehouseColor } from "./warehouseColor";
 
@@ -9,7 +10,7 @@ interface Props {
   line: CartLineType;
 }
 
-type OpenPicker = "warehouse" | "bin" | null;
+type OpenPicker = "warehouse" | "bin" | "split" | null;
 
 export function CartLine({ line }: Props) {
   const removeLine = useCart((s) => s.removeLine);
@@ -45,6 +46,16 @@ export function CartLine({ line }: Props) {
           >
             BIN {line.bin_name || "-"}
           </button>
+          {line.availability.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setPicker("split")}
+              aria-label={`Split ${line.sku}`}
+              className="rounded-badge border border-surface-border bg-surface px-2 py-0.5 text-ink-muted hover:bg-surface-card"
+            >
+              Split
+            </button>
+          )}
           {oversold && (
             <span
               role="status"
@@ -95,6 +106,11 @@ export function CartLine({ line }: Props) {
       />
       <BinPicker
         open={picker === "bin"}
+        onClose={() => setPicker(null)}
+        line={line}
+      />
+      <SplitLineModal
+        open={picker === "split"}
         onClose={() => setPicker(null)}
         line={line}
       />

@@ -26,12 +26,19 @@ export interface CartTotals {
   total_cents: number;
 }
 
+export interface SplitSpec {
+  warehouse_id: string;
+  bin_id: string;
+  quantity: number;
+}
+
 interface CartState {
   lines: CartLine[];
   addItem: (item: ItemLookupResponse) => void;
   removeLine: (id: string) => void;
   setQuantity: (id: string, quantity: number) => void;
   setWarehouseBin: (id: string, warehouse_id: string, bin_id: string) => void;
+  splitLine: (id: string, splits: SplitSpec[]) => void;
   clear: () => void;
 }
 
@@ -144,6 +151,38 @@ export const useCart = create<CartState>((set) => ({
         };
       }),
     })),
+
+  splitLine: (id, splits) =>
+    set((state) => {
+      const original = state.lines.find((l) => l.id === id);
+      if (!original) return state;
+
+      const replacement: CartLine[] = splits
+        .filter((s) => s.quantity > 0)
+        .map((s) => {
+          const wh = original.availability.find(
+            (w) => w.warehouse_id === s.warehouse_id,
+          );
+          const bin = wh?.bins.find((b) => b.bin_id === s.bin_id);
+          return {
+            ...original,
+            id: newLineId(),
+            warehouse_id: s.warehouse_id,
+            warehouse_name: wh?.warehouse_name ?? "",
+            bin_id: s.bin_id,
+            bin_name: bin?.bin_name ?? "",
+            quantity: s.quantity,
+          };
+        });
+
+      if (replacement.length === 0) return state;
+
+      return {
+        lines: state.lines.flatMap((l) =>
+          l.id === id ? replacement : [l],
+        ),
+      };
+    }),
 
   clear: () => set({ lines: [] }),
 }));
