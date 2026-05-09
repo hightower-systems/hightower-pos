@@ -95,6 +95,7 @@ async def start_checkout(
         rich_lines.append(
             {
                 "sku": line["sku"],
+                "name": line.get("name", ""),
                 "warehouse_id": line["warehouse_id"],
                 "bin_id": line["bin_id"],
                 "quantity": line["quantity"],
@@ -237,7 +238,7 @@ async def cancel_checkout(
     return txn
 
 
-def get_status(db: Session, txn_id: str) -> dict:
+def get_status(db: Session, settings: Settings, txn_id: str) -> dict:
     txn = db.get(POSTransaction, txn_id)
     if txn is None:
         raise CheckoutError("transaction_not_found", 404)
@@ -245,6 +246,8 @@ def get_status(db: Session, txn_id: str) -> dict:
     is_terminal = txn.status in TERMINAL_STATUSES
     result: dict | None = None
     if txn.status in {"COMPLETE", "INVENTORY_UPDATE_FAILED"}:
+        from pos_service.services.receipt import format_receipt
+
         tenders = json.loads(txn.tenders_json) if txn.tenders_json else []
         card_brand = None
         card_last4 = None
@@ -262,6 +265,7 @@ def get_status(db: Session, txn_id: str) -> dict:
             "tax_cents": txn.tax_cents,
             "total_cents": txn.total_cents,
             "payment_method": txn.payment_method,
+            "receipt_content": format_receipt(txn, settings=settings),
         }
     return {
         "transaction_id": txn.id,

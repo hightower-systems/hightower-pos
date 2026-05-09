@@ -26,6 +26,7 @@ def _to_http(exc: CheckoutError) -> HTTPException:
 
 class CartLineIn(BaseModel):
     sku: str
+    name: str = ""
     warehouse_id: str
     bin_id: str
     quantity: int = Field(gt=0)
@@ -151,10 +152,11 @@ class StatusResponse(BaseModel):
 def status_endpoint(
     transaction_id: str,
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
     user: POSUser = Depends(get_current_user),
 ) -> StatusResponse:
     try:
-        body = checkout_service.get_status(db, transaction_id)
+        body = checkout_service.get_status(db, settings, transaction_id)
     except CheckoutError as exc:
         raise _to_http(exc) from exc
     return StatusResponse(**body)

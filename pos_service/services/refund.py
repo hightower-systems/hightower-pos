@@ -234,7 +234,7 @@ async def cancel_refund(db: Session, *, refund_txn_id: str) -> POSTransaction:
     return refund_txn
 
 
-def get_refund_status(db: Session, refund_txn_id: str) -> dict:
+def get_refund_status(db: Session, settings: Settings, refund_txn_id: str) -> dict:
     refund_txn = db.get(POSTransaction, refund_txn_id)
     if refund_txn is None or refund_txn.txn_type != "refund":
         raise CheckoutError("transaction_not_found", 404)
@@ -242,7 +242,12 @@ def get_refund_status(db: Session, refund_txn_id: str) -> dict:
     is_terminal = refund_txn.status in REFUND_TERMINAL_STATUSES
     result: dict | None = None
     if refund_txn.status in {"COMPLETE", "REFUND_INVENTORY_UPDATE_FAILED"}:
+        from pos_service.services.receipt import format_receipt
+
         card_brand, card_last4 = _card_brand_and_last4(refund_txn.tenders_json)
+        parent: POSTransaction | None = None
+        if refund_txn.parent_transaction_id:
+            parent = db.get(POSTransaction, refund_txn.parent_transaction_id)
         result = {
             "refund_so_id": refund_txn.sentry_so_id,
             "windcave_txn_ref": refund_txn.windcave_txn_ref,
@@ -252,6 +257,9 @@ def get_refund_status(db: Session, refund_txn_id: str) -> dict:
             "tax_cents": refund_txn.tax_cents,
             "total_cents": refund_txn.total_cents,
             "payment_method": refund_txn.payment_method,
+            "receipt_content": format_receipt(
+                refund_txn, settings=settings, parent=parent
+            ),
         }
     return {
         "refund_transaction_id": refund_txn.id,

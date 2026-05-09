@@ -164,10 +164,13 @@ class StatusResponse(BaseModel):
 def status_endpoint(
     refund_transaction_id: str,
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
     user: POSUser = Depends(get_current_user),
 ) -> StatusResponse:
     try:
-        body = refund_service.get_refund_status(db, refund_transaction_id)
+        body = refund_service.get_refund_status(
+            db, settings, refund_transaction_id
+        )
     except CheckoutError as exc:
         raise _to_http(exc) from exc
     return StatusResponse(**body)
