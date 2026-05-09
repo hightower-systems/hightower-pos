@@ -62,6 +62,69 @@ describe("<Cart>", () => {
 
     expect(useCart.getState().lines[0].quantity).toBe(3);
   });
+
+  it("opens the WarehousePicker when the warehouse badge is clicked", async () => {
+    useCart.getState().addItem(ROD);
+    renderWithQuery(<Cart />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /change warehouse for rod-100/i }),
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: /warehouse for rod-100/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the BinPicker when the bin badge is clicked", async () => {
+    useCart.getState().addItem(ROD);
+    renderWithQuery(<Cart />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /change bin for rod-100/i }),
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: /bin in store/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders an oversold warning when qty exceeds the selected bin's stock", () => {
+    useCart.getState().addItem(ROD);
+    const id = useCart.getState().lines[0].id;
+    useCart.getState().setQuantity(id, 99);
+    renderWithQuery(<Cart />);
+
+    expect(screen.getByTestId("oversold-warning")).toHaveTextContent(
+      /only 5 in bin/i,
+    );
+  });
+
+  it("renders 'Out of stock here' when the selected bin has zero stock", () => {
+    const ZERO: typeof ROD = {
+      ...ROD,
+      availability: [
+        {
+          warehouse_id: "WH-STORE",
+          warehouse_name: "Store",
+          qty_available: 0,
+          bins: [{ bin_id: "BIN-EMPTY", bin_name: "EMPTY", qty: 0 }],
+        },
+      ],
+    };
+    useCart.getState().addItem(ZERO);
+    renderWithQuery(<Cart />);
+
+    expect(screen.getByTestId("oversold-warning")).toHaveTextContent(
+      /out of stock here/i,
+    );
+  });
+
+  it("does not render the oversold warning when qty is within bin stock", () => {
+    useCart.getState().addItem(ROD);
+    renderWithQuery(<Cart />);
+    expect(screen.queryByTestId("oversold-warning")).not.toBeInTheDocument();
+  });
 });
 
 describe("<CartTotals>", () => {

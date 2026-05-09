@@ -1,27 +1,61 @@
+import { useState } from "react";
+
 import { type CartLine as CartLineType, formatCents, useCart } from "../store/cart";
+import { BinPicker } from "./BinPicker";
+import { WarehousePicker } from "./WarehousePicker";
+import { warehouseColor } from "./warehouseColor";
 
 interface Props {
   line: CartLineType;
 }
 
+type OpenPicker = "warehouse" | "bin" | null;
+
 export function CartLine({ line }: Props) {
   const removeLine = useCart((s) => s.removeLine);
   const setQuantity = useCart((s) => s.setQuantity);
+  const [picker, setPicker] = useState<OpenPicker>(null);
 
   const lineTotal = line.unit_price_cents * line.quantity;
+  const wh = line.availability.find((w) => w.warehouse_id === line.warehouse_id);
+  const bin = wh?.bins.find((b) => b.bin_id === line.bin_id);
+  const binQty = bin?.qty ?? 0;
+  const oversold = line.quantity > binQty;
+  const whColor = warehouseColor(line.warehouse_id);
 
   return (
     <li className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-4 rounded-card border border-surface-border bg-surface-card px-4 py-3">
       <div className="min-w-0">
         <div className="font-mono text-sm font-bold text-ink">{line.sku}</div>
         <div className="truncate text-sm text-ink-muted">{line.name}</div>
-        <div className="mt-1 flex gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-muted">
-          <span className="rounded-badge bg-warehouse-store/15 px-2 py-0.5 text-warehouse-store">
+        <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-wider">
+          <button
+            type="button"
+            onClick={() => setPicker("warehouse")}
+            aria-label={`Change warehouse for ${line.sku}`}
+            className={`rounded-badge border px-2 py-0.5 ${whColor.bg} ${whColor.border} ${whColor.text} hover:brightness-95`}
+          >
             WH {line.warehouse_name || "-"}
-          </span>
-          <span className="rounded-badge bg-brand-copper/15 px-2 py-0.5 text-brand-copper">
+          </button>
+          <button
+            type="button"
+            onClick={() => setPicker("bin")}
+            aria-label={`Change bin for ${line.sku}`}
+            className="rounded-badge border border-brand-copper/40 bg-brand-copper/15 px-2 py-0.5 text-brand-copper hover:brightness-95"
+          >
             BIN {line.bin_name || "-"}
-          </span>
+          </button>
+          {oversold && (
+            <span
+              role="status"
+              data-testid="oversold-warning"
+              className="rounded-badge border border-status-warning/50 bg-status-warning/15 px-2 py-0.5 text-status-warning"
+            >
+              {binQty === 0
+                ? "Out of stock here"
+                : `Only ${binQty} in bin`}
+            </span>
+          )}
         </div>
       </div>
 
@@ -53,6 +87,17 @@ export function CartLine({ line }: Props) {
       >
         ×
       </button>
+
+      <WarehousePicker
+        open={picker === "warehouse"}
+        onClose={() => setPicker(null)}
+        line={line}
+      />
+      <BinPicker
+        open={picker === "bin"}
+        onClose={() => setPicker(null)}
+        line={line}
+      />
     </li>
   );
 }
