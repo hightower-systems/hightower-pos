@@ -30,6 +30,14 @@ describe("checkout store", () => {
     expect(useCheckout.getState().status).toBe("PAYMENT_IN_FLIGHT");
   });
 
+  it("startedCash transitions idle -> tendering_cash and carries the total in cents", () => {
+    useCheckout.getState().startedCash("txn-cash-1", 21619);
+    expect(useCheckout.getState().phase).toBe("tendering_cash");
+    expect(useCheckout.getState().transactionId).toBe("txn-cash-1");
+    expect(useCheckout.getState().totalCents).toBe(21619);
+    expect(useCheckout.getState().status).toBe("AWAITING_PAYMENT");
+  });
+
   it("finished transitions in_flight -> result with the supplied status and result", () => {
     useCheckout.getState().startedAt("txn-123");
     useCheckout.getState().finished("COMPLETE", SAMPLE_RESULT, null);

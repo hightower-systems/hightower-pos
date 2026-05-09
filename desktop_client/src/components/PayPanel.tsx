@@ -8,6 +8,7 @@ export function PayPanel() {
   const lines = useCart((s) => s.lines);
   const totals = computeTotals(lines);
   const startedAt = useCheckout((s) => s.startedAt);
+  const startedCash = useCheckout((s) => s.startedCash);
   const failed = useCheckout((s) => s.failed);
   const phase = useCheckout((s) => s.phase);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -20,23 +21,42 @@ export function PayPanel() {
   const flowActive = phase !== "idle";
   const canPay = !cartEmpty && !isPending && !flowActive;
 
+  function buildLinesPayload() {
+    return lines.map((l) => ({
+      sku: l.sku,
+      name: l.name,
+      warehouse_id: l.warehouse_id,
+      bin_id: l.bin_id,
+      quantity: l.quantity,
+      is_taxable: l.is_taxable,
+    }));
+  }
+
   async function handleCard() {
     setLocalError(null);
     try {
       const startResp = await start.mutateAsync({
-        lines: lines.map((l) => ({
-          sku: l.sku,
-          name: l.name,
-          warehouse_id: l.warehouse_id,
-          bin_id: l.bin_id,
-          quantity: l.quantity,
-          is_taxable: l.is_taxable,
-        })),
+        lines: buildLinesPayload(),
       });
       const chargeResp = await charge.mutateAsync({
         transactionId: startResp.transaction_id,
       });
       startedAt(chargeResp.transaction_id);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Could not start checkout.";
+      setLocalError(message);
+      failed(message);
+    }
+  }
+
+  async function handleCash() {
+    setLocalError(null);
+    try {
+      const startResp = await start.mutateAsync({
+        lines: buildLinesPayload(),
+      });
+      startedCash(startResp.transaction_id, startResp.total_cents);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Could not start checkout.";
@@ -65,9 +85,10 @@ export function PayPanel() {
         </button>
         <button
           type="button"
-          disabled
-          aria-label="Pay with cash (coming next phase)"
-          className="flex min-h-[64px] flex-col items-center justify-center rounded-card border border-surface-border bg-surface px-6 py-4 font-mono text-base font-bold uppercase tracking-wider text-ink-muted opacity-60"
+          onClick={handleCash}
+          disabled={!canPay}
+          aria-label="Pay with cash"
+          className="flex min-h-[64px] flex-col items-center justify-center rounded-card border border-brand-red bg-surface px-6 py-4 font-mono text-base font-bold uppercase tracking-wider text-brand-red hover:bg-brand-red/5 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <span>Pay Cash</span>
           <span className="text-xs font-semibold">

@@ -57,6 +57,14 @@ export interface CheckoutStatusResponse {
   result: CheckoutResultPayload | null;
 }
 
+export function fetchCheckoutStatus(
+  transactionId: string,
+): Promise<CheckoutStatusResponse> {
+  return api<CheckoutStatusResponse>(
+    `/api/checkout/${transactionId}/status`,
+  );
+}
+
 const POLL_INTERVAL_MS = 500;
 
 export function useCheckoutStatus(
@@ -73,6 +81,31 @@ export function useCheckoutStatus(
     refetchInterval: (query) =>
       query.state.data?.is_terminal ? false : POLL_INTERVAL_MS,
     refetchIntervalInBackground: true,
+  });
+}
+
+export interface ChargeCashRequest {
+  transactionId: string;
+  amount_tendered_cents: number;
+}
+
+export interface ChargeCashResponse {
+  transaction_id: string;
+  status: string;
+  change_cents: number;
+  so_id: string | null;
+}
+
+export function useChargeCash() {
+  return useMutation<ChargeCashResponse, Error, ChargeCashRequest>({
+    mutationFn: ({ transactionId, amount_tendered_cents }) =>
+      api<ChargeCashResponse>(
+        `/api/checkout/${transactionId}/charge-cash`,
+        {
+          method: "POST",
+          body: JSON.stringify({ amount_tendered_cents }),
+        },
+      ),
   });
 }
 

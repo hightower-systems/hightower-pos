@@ -1,3 +1,6 @@
+import { useEffect, useRef } from "react";
+
+import { usePrintReceipt } from "../api/printAgent";
 import { formatCents, useCart } from "../store/cart";
 import { isSuccessStatus, useCheckout } from "../store/checkout";
 import { Modal } from "./Modal";
@@ -14,13 +17,32 @@ export function PaymentResult() {
   const phase = useCheckout((s) => s.phase);
   const status = useCheckout((s) => s.status);
   const result = useCheckout((s) => s.result);
+  const transactionId = useCheckout((s) => s.transactionId);
   const error = useCheckout((s) => s.error);
   const reset = useCheckout((s) => s.reset);
   const clearCart = useCart((s) => s.clear);
-
-  if (phase !== "result") return null;
+  const printReceipt = usePrintReceipt();
+  const printedTxnRef = useRef<string | null>(null);
 
   const success = isSuccessStatus(status);
+  const isResult = phase === "result";
+
+  useEffect(() => {
+    if (!isResult || !success || !result?.receipt_content) return;
+    if (!transactionId || printedTxnRef.current === transactionId) return;
+    printedTxnRef.current = transactionId;
+    printReceipt.mutate({
+      content: result.receipt_content,
+      open_drawer_after: result.payment_method === "cash",
+    });
+  }, [isResult, success, result, transactionId, printReceipt]);
+
+  useEffect(() => {
+    if (!isResult) printedTxnRef.current = null;
+  }, [isResult]);
+
+  if (!isResult) return null;
+
   const title = (status && STATUS_LABELS[status]) ?? "Payment result";
 
   function handleDone() {
@@ -58,8 +80,19 @@ export function PaymentResult() {
               <span className="text-xs">{result.so_id}</span>
             </div>
           )}
-          <p className="mt-2 text-center text-xs uppercase tracking-wider text-ink-soft">
-            Receipt printing wires up in the next phase.
+          <p
+            data-testid="receipt-status"
+            className={`mt-2 text-center text-xs uppercase tracking-wider ${printReceipt.isError ? "text-status-warning" : "text-ink-soft"}`}
+          >
+            {printReceipt.isError
+              ? "Receipt did not print -- reprint manually."
+              : printReceipt.isPending
+                ? "Printing receipt..."
+                : printReceipt.isSuccess
+                  ? "Receipt printed."
+                  : result.receipt_content
+                    ? "Sending receipt to printer..."
+                    : "Receipt unavailable."}
           </p>
         </div>
       ) : (

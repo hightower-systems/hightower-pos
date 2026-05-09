@@ -51,10 +51,36 @@ describe("<PayPanel>", () => {
     expect(screen.getByRole("button", { name: /pay with card/i })).toBeEnabled();
   });
 
-  it("Pay Cash is shown but disabled in Phase 3 (lights up in Phase 4)", () => {
+  it("Pay Cash is enabled when the cart has at least one line", () => {
     useCart.getState().addItem(ROD);
     renderWithQuery(<PayPanel />);
-    expect(screen.getByRole("button", { name: /pay with cash/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /pay with cash/i })).toBeEnabled();
+  });
+
+  it("clicking Pay Cash runs start and transitions to tendering_cash with the total", async () => {
+    server.use(
+      http.post(`${API}/api/checkout/start`, () =>
+        HttpResponse.json({
+          transaction_id: "txn-cash-1",
+          status: "AWAITING_PAYMENT",
+          tax_rate: 0.0810,
+          subtotal_cents: 19999,
+          tax_cents: 1620,
+          total_cents: 21619,
+        }),
+      ),
+    );
+
+    useCart.getState().addItem(ROD);
+    renderWithQuery(<PayPanel />);
+
+    await userEvent.click(screen.getByRole("button", { name: /pay with cash/i }));
+
+    await waitFor(() => {
+      expect(useCheckout.getState().phase).toBe("tendering_cash");
+    });
+    expect(useCheckout.getState().transactionId).toBe("txn-cash-1");
+    expect(useCheckout.getState().totalCents).toBe(21619);
   });
 
   it("clicking Pay Card runs start + charge-card and transitions checkout to in_flight", async () => {

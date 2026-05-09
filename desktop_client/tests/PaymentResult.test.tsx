@@ -1,12 +1,16 @@
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 
 import type { ItemLookupResponse } from "../src/api/items";
 import { PaymentResult } from "../src/components/PaymentResult";
 import { useCart } from "../src/store/cart";
 import { useCheckout } from "../src/store/checkout";
+import { server } from "./msw/server";
 import { renderWithQuery } from "./utils";
+
+const PRINT_AGENT = "http://localhost/print-agent";
 
 const ROD: ItemLookupResponse = {
   sku: "ROD-100",
@@ -103,6 +107,81 @@ describe("<PaymentResult>", () => {
 
     expect(useCart.getState().lines).toHaveLength(1);
     expect(useCheckout.getState().phase).toBe("idle");
+  });
+
+  it("auto-prints the receipt on success with open_drawer_after=true for cash", async () => {
+    let captured: { content?: string; open_drawer_after?: boolean } = {};
+    server.use(
+      http.post(`${PRINT_AGENT}/print`, async ({ request }) => {
+        captured = (await request.json()) as typeof captured;
+        return HttpResponse.json({
+          success: true,
+          printer_status: "online",
+        });
+      }),
+    );
+
+    useCheckout.getState().startedCash("txn-1", 21619);
+    useCheckout
+      .getState()
+      .finished(
+        "COMPLETE",
+        { ...COMPLETE_RESULT, payment_method: "cash" },
+        null,
+      );
+    renderWithQuery(<PaymentResult />);
+
+    await waitFor(() => {
+      expect(captured.content).toBe("(receipt)");
+    });
+    expect(captured.open_drawer_after).toBe(true);
+    expect(screen.getByTestId("receipt-status")).toBeInTheDocument();
+  });
+
+  it("auto-prints the receipt on success with open_drawer_after=false for card", async () => {
+    let captured: { open_drawer_after?: boolean } = {};
+    server.use(
+      http.post(`${PRINT_AGENT}/print`, async ({ request }) => {
+        captured = (await request.json()) as typeof captured;
+        return HttpResponse.json({
+          success: true,
+          printer_status: "online",
+        });
+      }),
+    );
+
+    useCheckout.getState().startedAt("txn-2");
+    useCheckout
+      .getState()
+      .finished(
+        "COMPLETE",
+        { ...COMPLETE_RESULT, payment_method: "card" },
+        null,
+      );
+    renderWithQuery(<PaymentResult />);
+
+    await waitFor(() => {
+      expect(captured.open_drawer_after).toBe(false);
+    });
+  });
+
+  it("does not print on failure terminal states", async () => {
+    let printCalled = false;
+    server.use(
+      http.post(`${PRINT_AGENT}/print`, () => {
+        printCalled = true;
+        return HttpResponse.json({
+          success: true,
+          printer_status: "online",
+        });
+      }),
+    );
+
+    useCheckout.getState().failed("Card declined");
+    renderWithQuery(<PaymentResult />);
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(printCalled).toBe(false);
   });
 
   it("renders the right title for each non-COMPLETE terminal status", () => {

@@ -12,15 +12,17 @@ export interface CheckoutResultPayload {
   receipt_content: string | null;
 }
 
-export type CheckoutPhase = "idle" | "in_flight" | "result";
+export type CheckoutPhase = "idle" | "in_flight" | "tendering_cash" | "result";
 
 interface CheckoutState {
   phase: CheckoutPhase;
   transactionId: string | null;
+  totalCents: number;
   status: string | null;
   result: CheckoutResultPayload | null;
   error: string | null;
   startedAt: (transactionId: string) => void;
+  startedCash: (transactionId: string, totalCents: number) => void;
   finished: (
     status: string,
     result: CheckoutResultPayload | null,
@@ -33,6 +35,7 @@ interface CheckoutState {
 export const useCheckout = create<CheckoutState>((set) => ({
   phase: "idle",
   transactionId: null,
+  totalCents: 0,
   status: null,
   result: null,
   error: null,
@@ -42,6 +45,16 @@ export const useCheckout = create<CheckoutState>((set) => ({
       phase: "in_flight",
       transactionId,
       status: "PAYMENT_IN_FLIGHT",
+      result: null,
+      error: null,
+    }),
+
+  startedCash: (transactionId, totalCents) =>
+    set({
+      phase: "tendering_cash",
+      transactionId,
+      totalCents,
+      status: "AWAITING_PAYMENT",
       result: null,
       error: null,
     }),
@@ -67,6 +80,7 @@ export const useCheckout = create<CheckoutState>((set) => ({
     set({
       phase: "idle",
       transactionId: null,
+      totalCents: 0,
       status: null,
       result: null,
       error: null,
