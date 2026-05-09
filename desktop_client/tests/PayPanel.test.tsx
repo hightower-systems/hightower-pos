@@ -1,7 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import type { ItemLookupResponse } from "../src/api/items";
 import { PayPanel } from "../src/components/PayPanel";
@@ -160,6 +160,80 @@ describe("<PayPanel>", () => {
       email: "pat@example.com",
       phone: "+13035551234",
     });
+  });
+
+  it("F2 triggers the card flow when the cart is non-empty", async () => {
+    server.use(
+      http.post(`${API}/api/checkout/start`, () =>
+        HttpResponse.json({
+          transaction_id: "txn-f2",
+          status: "AWAITING_PAYMENT",
+          tax_rate: 0.0810,
+          subtotal_cents: 19999,
+          tax_cents: 1620,
+          total_cents: 21619,
+        }),
+      ),
+      http.post(`${API}/api/checkout/txn-f2/charge-card`, () =>
+        HttpResponse.json({
+          transaction_id: "txn-f2",
+          status: "PAYMENT_IN_FLIGHT",
+        }),
+      ),
+    );
+
+    useCart.getState().addItem(ROD);
+    renderWithQuery(<PayPanel />);
+
+    fireEvent.keyDown(document, { key: "F2" });
+
+    await waitFor(() => {
+      expect(useCheckout.getState().phase).toBe("in_flight");
+    });
+    expect(useCheckout.getState().transactionId).toBe("txn-f2");
+  });
+
+  it("F1 triggers the cash flow when the cart is non-empty", async () => {
+    server.use(
+      http.post(`${API}/api/checkout/start`, () =>
+        HttpResponse.json({
+          transaction_id: "txn-f1",
+          status: "AWAITING_PAYMENT",
+          tax_rate: 0.0810,
+          subtotal_cents: 19999,
+          tax_cents: 1620,
+          total_cents: 21619,
+        }),
+      ),
+    );
+
+    useCart.getState().addItem(ROD);
+    renderWithQuery(<PayPanel />);
+
+    fireEvent.keyDown(document, { key: "F1" });
+
+    await waitFor(() => {
+      expect(useCheckout.getState().phase).toBe("tendering_cash");
+    });
+    expect(useCheckout.getState().transactionId).toBe("txn-f1");
+  });
+
+  it("F1/F2 are no-ops when the cart is empty", () => {
+    renderWithQuery(<PayPanel />);
+    fireEvent.keyDown(document, { key: "F1" });
+    fireEvent.keyDown(document, { key: "F2" });
+    expect(useCheckout.getState().phase).toBe("idle");
+  });
+
+  it("renders the F1 and F2 keyboard hints on the buttons", () => {
+    useCart.getState().addItem(ROD);
+    renderWithQuery(<PayPanel />);
+    expect(
+      screen.getByRole("button", { name: /pay with card/i }),
+    ).toHaveTextContent(/F2/);
+    expect(
+      screen.getByRole("button", { name: /pay with cash/i }),
+    ).toHaveTextContent(/F1/);
   });
 
   it("renders the failure path when /start returns 5xx", async () => {

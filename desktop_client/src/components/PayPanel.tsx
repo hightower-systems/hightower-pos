@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { useChargeCard, useStartCheckout } from "../api/checkout";
+import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { computeTotals, formatCents, useCart } from "../store/cart";
 import { useCheckout } from "../store/checkout";
 import { useCustomer } from "../store/customer";
@@ -79,6 +80,11 @@ export function PayPanel() {
     }
   }
 
+  useKeyboardShortcuts([
+    { key: "F1", handler: handleCash, enabled: canPay },
+    { key: "F2", handler: handleCard, enabled: canPay },
+  ]);
+
   return (
     <div
       className="flex flex-col gap-2 rounded-card border border-surface-border bg-surface-card p-4"
@@ -90,9 +96,14 @@ export function PayPanel() {
           onClick={handleCard}
           disabled={!canPay}
           aria-label="Pay with card"
-          className="flex min-h-[64px] flex-col items-center justify-center rounded-card bg-brand-red px-6 py-4 font-mono text-base font-bold uppercase tracking-wider text-brand-cream hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex min-h-[64px] flex-col items-center justify-center rounded-card bg-brand-red px-6 py-4 font-mono text-base font-bold uppercase tracking-wider text-brand-cream hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-brand-red focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <span>Pay Card</span>
+          <span className="flex items-center gap-2">
+            <kbd className="rounded-badge border border-brand-cream/40 bg-brand-cream/10 px-1.5 py-0.5 text-[9px] font-bold tracking-wider">
+              F2
+            </kbd>
+            Pay Card
+          </span>
           <span className="text-xs font-semibold">
             {formatCents(totals.total_cents)}
           </span>
@@ -102,9 +113,14 @@ export function PayPanel() {
           onClick={handleCash}
           disabled={!canPay}
           aria-label="Pay with cash"
-          className="flex min-h-[64px] flex-col items-center justify-center rounded-card border border-brand-red bg-surface px-6 py-4 font-mono text-base font-bold uppercase tracking-wider text-brand-red hover:bg-brand-red/5 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex min-h-[64px] flex-col items-center justify-center rounded-card border border-brand-red bg-surface px-6 py-4 font-mono text-base font-bold uppercase tracking-wider text-brand-red hover:bg-brand-red/5 focus:outline-none focus:ring-2 focus:ring-brand-red focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <span>Pay Cash</span>
+          <span className="flex items-center gap-2">
+            <kbd className="rounded-badge border border-brand-red/40 bg-brand-red/5 px-1.5 py-0.5 text-[9px] font-bold tracking-wider">
+              F1
+            </kbd>
+            Pay Cash
+          </span>
           <span className="text-xs font-semibold">
             {formatCents(totals.total_cents)}
           </span>

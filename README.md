@@ -47,6 +47,22 @@ local Print Agent on `127.0.0.1:9100`. In production the POS Service
 mounts `desktop_client/dist/` at `/` via FastAPI `StaticFiles`, so the
 same relative URLs work without a proxy.
 
+### Cashier keyboard shortcuts
+
+The register UI is built around a few function keys so a busy
+cashier doesn't have to break flow to reach the mouse:
+
+| Key | Action |
+|-----|--------|
+| `F1` | Pay Cash (when cart is non-empty and no flow is active) |
+| `F2` | Pay Card (same conditions as F1) |
+| `F3` | Open the refund lookup modal |
+| `F4` | Open the attach-customer modal (when no customer is attached) |
+| `Esc` | Close the active modal |
+
+Each shortcut is no-op when its action is currently disabled, so e.g.
+hitting F2 with an empty cart does nothing.
+
 ## Deploy (Docker)
 
 ```bash
@@ -68,24 +84,63 @@ The healthcheck polls `/health` every 30 seconds. Live status:
 docker compose ps
 ```
 
+### Fabric integration
+
+The POS Service talks to one Fabric endpoint -- the transaction
+service -- for everything Fabric-related: price catalog reads,
+sales-order writes, customer lookups. The transaction service is a
+REST API; the POS Service does not touch Fabric SQL directly. All
+Fabric calls go through a single `FabricClient` configured via:
+
+```
+FABRIC_TRANSACTION_SERVICE_URL=https://...
+FABRIC_API_KEY=...
+FABRIC_REQUEST_TIMEOUT_S=30
+```
+
+Empty `FABRIC_TRANSACTION_SERVICE_URL` puts the client in mock mode
+and disables both the price-sync poller and the SO outbox drain, so
+dev machines without Azure credentials boot cleanly. The integration
+points:
+
+- **Price catalog (read):** four-hour polling worker calls the
+  transaction service's catalog endpoint and upserts the response
+  into the local `pos_prices` SQLite cache. Cashier reads only from
+  the cache, so a Fabric outage never blocks a sale -- prices just
+  age until the next sync. Interval is configurable via
+  `FABRIC_SYNC_INTERVAL_S` (default `14400`).
+- **Sales-order writeback (write):** every COMPLETE sale or refund
+  inserts a `fabric_outbox` row in the same DB transaction as the
+  status flip. A separate async worker drains pending entries by
+  POSTing the payload to the transaction service. Retry schedule
+  mirrors the Sentry-side dispatcher (4s, 15s, 60s, 5min, 30min,
+  2hr, 12hr -> DLQ at attempt 9). Drain interval and batch size are
+  `FABRIC_OUTBOX_DRAIN_INTERVAL_S` (default `5`) and
+  `FABRIC_OUTBOX_BATCH_SIZE` (default `50`).
+- **Customer lookup (read):** `GET /api/customers/lookup?name=&email=&phone=`
+  proxies to the transaction service. The Fabric customer platform
+  performs fuzzy matching across an indexed identity store; the POS
+  Service forwards whatever the cashier typed and surfaces the match
+  (or null) to the UI.
+
+DLQ visibility:
+
+```bash
+curl ".../api/admin/fabric-outbox?status=DLQ"
+curl -X POST ".../api/admin/fabric-outbox/{id}/retry"
+```
+
 ### Pricing data sources
 
 Two paths write into the local `pos_prices` SQLite cache. The cashier
-register reads only from the cache, so a Fabric outage or a missed CSV
-import never blocks a sale -- prices just age until the next refresh.
+reads only from the cache, so a Fabric outage or a missed CSV import
+never blocks a sale -- prices just age until the next refresh.
 
-**Microsoft Fabric (routine):** the POS Service polls Fabric every
-`FABRIC_SYNC_INTERVAL_S` seconds (default 4 hours), upserts the full
-catalog into `pos_prices`. Configured via `FABRIC_CONNECTION_STRING` and
-the `[fabric]` install extra (`pip install -e ".[fabric]"` for the
-`pyodbc` driver). An empty connection string puts the client in mock
-mode and the polling task does not start, so dev machines without
-Azure credentials run with whatever the most recent CSV import left
-behind.
-
-**CSV (manual override):** `POST /api/prices/import` accepts a
-`sku,price` CSV and writes the same `pos_prices` table. Useful for a
-one-off correction without waiting on the next Fabric poll.
+- **Fabric polling (routine):** see Fabric integration above.
+- **CSV (manual override):** `POST /api/prices/import` accepts a
+  `sku,price` CSV and writes the same `pos_prices` table. Useful
+  for a one-off correction without waiting on the next Fabric
+  poll.
 
 Whichever wrote a given SKU most recently wins. The `updated_at`
 column on `pos_prices` records the last write so an admin can spot

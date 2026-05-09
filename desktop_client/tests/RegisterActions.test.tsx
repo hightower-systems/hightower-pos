@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 
 import { RegisterActions } from "../src/components/RegisterActions";
 import { useCheckout } from "../src/store/checkout";
@@ -56,6 +56,48 @@ describe("<RegisterActions>", () => {
       screen.getByRole("button", { name: /attach customer/i }),
     );
     expect(useCustomer.getState().phase).toBe("lookup");
+  });
+
+  it("F3 opens the refund lookup phase", () => {
+    renderWithQuery(<RegisterActions />);
+    fireEvent.keyDown(document, { key: "F3" });
+    expect(useRefund.getState().phase).toBe("lookup");
+  });
+
+  it("F4 opens the customer lookup phase when no customer attached", () => {
+    renderWithQuery(<RegisterActions />);
+    fireEvent.keyDown(document, { key: "F4" });
+    expect(useCustomer.getState().phase).toBe("lookup");
+  });
+
+  it("F4 is a no-op when a customer is already attached", () => {
+    useCustomer.getState().setAttached({
+      customer_id: "cust-1",
+      name: "Pat Smith",
+      email: null,
+      phone: null,
+      registered: true,
+    });
+    renderWithQuery(<RegisterActions />);
+    fireEvent.keyDown(document, { key: "F4" });
+    expect(useCustomer.getState().phase).toBe("idle");
+  });
+
+  it("F3 is a no-op while a checkout is mid-flight", () => {
+    useCheckout.getState().startedAt("txn-1");
+    renderWithQuery(<RegisterActions />);
+    fireEvent.keyDown(document, { key: "F3" });
+    expect(useRefund.getState().phase).toBe("idle");
+  });
+
+  it("renders the F3 and F4 keyboard hints on the buttons", () => {
+    renderWithQuery(<RegisterActions />);
+    expect(
+      screen.getByRole("button", { name: /refund a sale/i }),
+    ).toHaveTextContent(/F3/);
+    expect(
+      screen.getByRole("button", { name: /attach customer/i }),
+    ).toHaveTextContent(/F4/);
   });
 
   it("renders the chip with the attached customer's name and detaches on click", async () => {
