@@ -1,0 +1,33 @@
+import { http, HttpResponse } from "msw";
+
+const API = "http://localhost";
+
+export const okMe = {
+  username: "mike",
+  display_name: "Mike Hightower",
+  expires_at: "2027-01-01T00:00:00",
+  must_change_password: false,
+};
+
+export const okDependencies = {
+  version: "0.1.0",
+  terminal_id: "TERM-1",
+  sentry: { reachable: true, latency_ms: 42, error: null },
+  windcave: { configured: true, mock: false },
+};
+
+export const okPrintAgentStatus = {
+  agent_status: "online",
+  agent_version: "0.1.0",
+  printer_online: true,
+  last_print_at: null,
+};
+
+// Default handlers: a fresh page load presents an unauthenticated /me
+// (the App should render the login screen). Individual tests override
+// these via server.use(...).
+export const handlers = [
+  http.get(`${API}/api/auth/me`, () =>
+    HttpResponse.json({ detail: { error: "not_authenticated" } }, { status: 401 }),
+  ),
+];

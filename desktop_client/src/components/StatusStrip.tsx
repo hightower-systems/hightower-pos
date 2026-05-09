@@ -1,0 +1,88 @@
+import { useDependencies } from "../api/health";
+import { usePrintAgentStatus } from "../api/printAgent";
+
+interface Props {
+  cashier: { display_name: string };
+  onSignOut: () => void;
+  signOutPending?: boolean;
+}
+
+export function StatusStrip({ cashier, onSignOut, signOutPending = false }: Props) {
+  const deps = useDependencies();
+  const printAgent = usePrintAgentStatus();
+
+  const sentry = deps.data?.sentry;
+  const windcave = deps.data?.windcave;
+  const printer = printAgent.data;
+
+  return (
+    <header className="flex flex-wrap items-center gap-4 border-b border-slate-800 bg-slate-900 px-6 py-3 text-sm">
+      <span className="text-base font-semibold tracking-tight text-slate-100">
+        AvidMax POS
+      </span>
+      <span className="text-slate-400">{cashier.display_name}</span>
+      {deps.data && (
+        <span className="font-mono text-xs text-slate-500">
+          {deps.data.terminal_id}
+        </span>
+      )}
+
+      <div className="ml-auto flex items-center gap-5">
+        <Dot
+          label="Sentry"
+          ok={sentry?.reachable ?? null}
+          detail={
+            sentry?.reachable && sentry.latency_ms !== null
+              ? `${sentry.latency_ms}ms`
+              : sentry?.error ?? undefined
+          }
+        />
+        <Dot
+          label="Windcave"
+          ok={windcave?.configured ?? null}
+          detail={windcave?.mock ? "mock" : undefined}
+        />
+        <Dot
+          label="Print Agent"
+          ok={printer?.printer_online ?? null}
+        />
+        <button
+          type="button"
+          onClick={onSignOut}
+          disabled={signOutPending}
+          className="rounded border border-slate-700 px-3 py-1 text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+        >
+          Sign out
+        </button>
+      </div>
+    </header>
+  );
+}
+
+interface DotProps {
+  label: string;
+  ok: boolean | null;
+  detail?: string;
+}
+
+function Dot({ label, ok, detail }: DotProps) {
+  const color =
+    ok === null
+      ? "bg-slate-500"
+      : ok
+      ? "bg-emerald-400"
+      : "bg-red-500";
+  const status =
+    ok === null ? "unknown" : ok ? "online" : "offline";
+
+  return (
+    <span className="flex items-center gap-1.5" data-testid={`dot-${label.toLowerCase().replace(" ", "-")}`}>
+      <span
+        className={`inline-block h-2 w-2 rounded-full ${color}`}
+        aria-label={`${label}: ${status}`}
+      />
+      <span className="text-slate-300">{label}</span>
+      {detail && <span className="text-xs text-slate-500">{detail}</span>}
+    </span>
+  );
+}
