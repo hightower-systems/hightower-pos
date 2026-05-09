@@ -34,6 +34,7 @@ startup or churn the price cache.
 """
 
 import logging
+from typing import Any
 
 import httpx
 
@@ -41,11 +42,12 @@ from pos_service.config import Settings
 
 log = logging.getLogger(__name__)
 
-# TODO(integration): confirm the actual path with the Fabric engineer when
-# the transaction service URL + auth are finalised. The transaction
-# service exposes one endpoint that returns the active price catalog as
-# rows shaped {"sku": str, "unit_price_cents": int}.
+# TODO(integration): confirm the actual paths with the Fabric engineer
+# when the transaction service URL + auth are finalised. Per the
+# AvidMaxmkv.txt call, the transaction service is one REST surface that
+# routes our payloads to the right Fabric tables.
 PRICE_CATALOG_PATH = "/api/v1/prices/catalog"
+SALES_ORDERS_PATH = "/api/v1/sales_orders"
 
 
 class FabricClientError(Exception):
@@ -111,6 +113,36 @@ class FabricClient:
             raise FabricClientError(
                 f"price catalog fetch returned malformed rows: {exc}"
             ) from exc
+
+    async def write_sales_order(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """POST a completed SO (or refund SO) to the Fabric transaction service.
+
+        Payload shape is intentionally lean per the architecture call:
+        external_so_ref + sentry_so_id + status + totals + lines, plus a
+        few register/cashier identifiers. The transaction service routes
+        the payload to the right Fabric-side table; the POS Service is
+        not authoritative on Fabric's schema.
+
+        Returns the parsed JSON response (typically {"fabric_so_id": ...}).
+        Mock mode (no client constructed) raises FabricClientError so the
+        outbox drain treats it as a delivery failure rather than silently
+        succeeding on a dev box without Fabric credentials.
+        """
+        if self._client is None:
+            raise FabricClientError("fabric_mock_mode")
+        try:
+            response = await self._client.post(SALES_ORDERS_PATH, json=payload)
+            response.raise_for_status()
+            body = response.json()
+        except httpx.HTTPError as exc:
+            raise FabricClientError(
+                f"sales order write failed: {exc}"
+            ) from exc
+        if not isinstance(body, dict):
+            raise FabricClientError(
+                f"sales order write returned non-object payload: {type(body).__name__}"
+            )
+        return body
 
     async def aclose(self) -> None:
         if self._client is not None:

@@ -24,7 +24,7 @@ from pos_service.clients.windcave import (
 )
 from pos_service.config import Settings
 from pos_service.models import POSTransaction
-from pos_service.services import pricing
+from pos_service.services import fabric_outbox, pricing
 
 log = logging.getLogger(__name__)
 
@@ -183,7 +183,7 @@ async def charge_cash(
     )
     db.commit()
 
-    await _send_to_sentry(db, sentry, txn, payment_method="cash")
+    await _send_to_sentry(db, sentry, txn, payment_method="cash", settings=settings)
     return txn
 
 
@@ -208,7 +208,7 @@ async def charge_card(
     txn.payment_method = "card"
     txn.windcave_response_xml = initial.raw_xml
     if initial.complete:
-        await _finalize_card_charge(db, txn, initial, sentry=sentry)
+        await _finalize_card_charge(db, txn, initial, sentry=sentry, settings=settings)
     else:
         txn.status = "PAYMENT_IN_FLIGHT"
         db.commit()
@@ -312,7 +312,9 @@ async def poll_card_until_complete(
             txn.last_error = "polling_timeout"
             db.commit()
             return
-        await _finalize_card_charge(db, txn, final_status, sentry=sentry)
+        await _finalize_card_charge(
+            db, txn, final_status, sentry=sentry, settings=settings
+        )
 
 
 async def _finalize_card_charge(
@@ -321,6 +323,7 @@ async def _finalize_card_charge(
     status: WindcaveStatusResponse,
     *,
     sentry: SentryClient,
+    settings: Settings,
 ) -> None:
     txn.windcave_response_xml = status.raw_xml
 
@@ -359,7 +362,7 @@ async def _finalize_card_charge(
     )
     db.commit()
 
-    await _send_to_sentry(db, sentry, txn, payment_method="card")
+    await _send_to_sentry(db, sentry, txn, payment_method="card", settings=settings)
 
 
 async def _send_to_sentry(
@@ -368,6 +371,7 @@ async def _send_to_sentry(
     txn: POSTransaction,
     *,
     payment_method: str,
+    settings: Settings,
 ) -> None:
     request = _build_checkout_request(txn, payment_method=payment_method)
     try:
@@ -376,6 +380,7 @@ async def _send_to_sentry(
         log.warning("sentry checkout failed for txn %s: %s", txn.id, exc)
         txn.status = "INVENTORY_UPDATE_FAILED"
         txn.last_error = f"{exc.error_code or 'unknown'}: {exc}"
+        fabric_outbox.enqueue(db, txn, settings=settings)
         db.commit()
         try:
             await sentry.log_inbound_activity(
@@ -390,6 +395,7 @@ async def _send_to_sentry(
 
     txn.status = "COMPLETE"
     txn.sentry_so_id = result.so_id
+    fabric_outbox.enqueue(db, txn, settings=settings)
     db.commit()
 
 

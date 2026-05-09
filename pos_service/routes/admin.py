@@ -11,8 +11,8 @@ from pos_service.auth import get_current_user
 from pos_service.clients import SentryClient
 from pos_service.clients.sentry import SentryClientError, get_sentry_client
 from pos_service.db import get_db
-from pos_service.models import POSTransaction, POSUser
-from pos_service.services import reconciliation
+from pos_service.models import FabricOutboxEntry, POSTransaction, POSUser
+from pos_service.services import fabric_outbox, reconciliation
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -166,4 +166,93 @@ async def retry_sentry(
         status=txn.status,
         sentry_so_id=txn.sentry_so_id,
         succeeded=ok,
+    )
+
+
+class FabricOutboxSummary(BaseModel):
+    id: str
+    pos_transaction_id: str
+    status: str
+    attempt_count: int
+    next_attempt_at: datetime
+    last_error: str | None
+    fabric_so_id: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+_OUTBOX_STATUSES = {"PENDING", "IN_FLIGHT", "DELIVERED", "DLQ"}
+
+
+@router.get("/fabric-outbox", response_model=list[FabricOutboxSummary])
+def list_fabric_outbox(
+    status_filter: str | None = Query(default=None, alias="status"),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    user: POSUser = Depends(get_current_user),
+) -> list[FabricOutboxSummary]:
+    if status_filter is not None and status_filter not in _OUTBOX_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "invalid_status", "allowed": sorted(_OUTBOX_STATUSES)},
+        )
+
+    stmt = select(FabricOutboxEntry)
+    if status_filter is not None:
+        stmt = stmt.where(FabricOutboxEntry.status == status_filter)
+    stmt = stmt.order_by(FabricOutboxEntry.created_at.desc()).limit(limit)
+    rows = list(db.execute(stmt).scalars())
+    return [
+        FabricOutboxSummary(
+            id=row.id,
+            pos_transaction_id=row.pos_transaction_id,
+            status=row.status,
+            attempt_count=row.attempt_count,
+            next_attempt_at=row.next_attempt_at,
+            last_error=row.last_error,
+            fabric_so_id=row.fabric_so_id,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+        for row in rows
+    ]
+
+
+class FabricOutboxRetryResponse(BaseModel):
+    id: str
+    status: str
+    attempt_count: int
+    next_attempt_at: datetime
+
+
+@router.post(
+    "/fabric-outbox/{entry_id}/retry",
+    response_model=FabricOutboxRetryResponse,
+)
+def retry_fabric_outbox_entry(
+    entry_id: str,
+    db: Session = Depends(get_db),
+    user: POSUser = Depends(get_current_user),
+) -> FabricOutboxRetryResponse:
+    entry = db.get(FabricOutboxEntry, entry_id)
+    if entry is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "outbox_entry_not_found"},
+        )
+    if entry.status not in {"DLQ", "DELIVERED"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "invalid_state", "current_status": entry.status},
+        )
+    entry.status = "PENDING"
+    entry.attempt_count = 0
+    entry.next_attempt_at = fabric_outbox._now_naive_utc()
+    entry.last_error = None
+    db.commit()
+    return FabricOutboxRetryResponse(
+        id=entry.id,
+        status=entry.status,
+        attempt_count=entry.attempt_count,
+        next_attempt_at=entry.next_attempt_at,
     )

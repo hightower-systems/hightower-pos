@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     fabric_api_key: str = ""
     fabric_request_timeout_s: float = 30.0
     fabric_sync_interval_s: int = 14400
+    fabric_outbox_drain_interval_s: int = 5
+    fabric_outbox_batch_size: int = 50
 
     store_name: str = "AvidMax"
     store_address_line_1: str = ""

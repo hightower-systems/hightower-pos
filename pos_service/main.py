@@ -18,6 +18,7 @@ from pos_service.routes import health as health_routes
 from pos_service.routes import items as items_routes
 from pos_service.routes import prices as prices_routes
 from pos_service.routes import refunds as refunds_routes
+from pos_service.services.fabric_outbox import run_loop as fabric_outbox_loop
 from pos_service.services.fabric_price_sync import run_loop as fabric_sync_loop
 
 log = logging.getLogger(__name__)
@@ -29,28 +30,42 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         fabric_client = FabricClient.from_settings(settings)
-        sync_task: asyncio.Task[None] | None = None
+        background_tasks: list[asyncio.Task[None]] = []
 
         if fabric_client.is_mock:
-            log.info("fabric_price_sync_disabled_mock_mode")
+            log.info("fabric_workers_disabled_mock_mode")
         else:
             session_factory = get_session_factory()
-            sync_task = asyncio.create_task(
-                fabric_sync_loop(
-                    fabric_client,
-                    session_factory,
-                    settings.fabric_sync_interval_s,
-                ),
-                name="fabric_price_sync",
+            background_tasks.append(
+                asyncio.create_task(
+                    fabric_sync_loop(
+                        fabric_client,
+                        session_factory,
+                        settings.fabric_sync_interval_s,
+                    ),
+                    name="fabric_price_sync",
+                )
+            )
+            background_tasks.append(
+                asyncio.create_task(
+                    fabric_outbox_loop(
+                        fabric_client,
+                        session_factory,
+                        settings.fabric_outbox_drain_interval_s,
+                        batch_size=settings.fabric_outbox_batch_size,
+                    ),
+                    name="fabric_outbox_drain",
+                )
             )
 
         try:
             yield
         finally:
-            if sync_task is not None:
-                sync_task.cancel()
+            for task in background_tasks:
+                task.cancel()
+            for task in background_tasks:
                 try:
-                    await sync_task
+                    await task
                 except asyncio.CancelledError:
                     pass
             await fabric_client.aclose()

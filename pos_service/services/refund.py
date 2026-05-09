@@ -22,6 +22,7 @@ from pos_service.clients.windcave import (
 )
 from pos_service.config import Settings
 from pos_service.models import POSTransaction
+from pos_service.services import fabric_outbox
 from pos_service.services.checkout import CheckoutError
 
 log = logging.getLogger(__name__)
@@ -195,7 +196,9 @@ async def charge_card_refund(
 
     refund_txn.windcave_response_xml = initial.raw_xml
     if initial.complete:
-        await _finalize_refund_charge(db, refund_txn, initial, sentry=sentry)
+        await _finalize_refund_charge(
+            db, refund_txn, initial, sentry=sentry, settings=settings
+        )
     else:
         refund_txn.status = "REFUND_PAYMENT_IN_FLIGHT"
         db.commit()
@@ -219,7 +222,7 @@ async def charge_cash_refund(
     )
     db.commit()
 
-    await _send_refund_to_sentry(db, sentry, refund_txn)
+    await _send_refund_to_sentry(db, sentry, refund_txn, settings=settings)
     return refund_txn
 
 
@@ -305,7 +308,9 @@ async def poll_refund_until_complete(
             refund_txn.last_error = "polling_timeout"
             db.commit()
             return
-        await _finalize_refund_charge(db, refund_txn, final_status, sentry=sentry)
+        await _finalize_refund_charge(
+            db, refund_txn, final_status, sentry=sentry, settings=settings
+        )
 
 
 async def _finalize_refund_charge(
@@ -314,6 +319,7 @@ async def _finalize_refund_charge(
     status: WindcaveStatusResponse,
     *,
     sentry: SentryClient,
+    settings: Settings,
 ) -> None:
     refund_txn.windcave_response_xml = status.raw_xml
 
@@ -354,11 +360,15 @@ async def _finalize_refund_charge(
     )
     db.commit()
 
-    await _send_refund_to_sentry(db, sentry, refund_txn)
+    await _send_refund_to_sentry(db, sentry, refund_txn, settings=settings)
 
 
 async def _send_refund_to_sentry(
-    db: Session, sentry: SentryClient, refund_txn: POSTransaction
+    db: Session,
+    sentry: SentryClient,
+    refund_txn: POSTransaction,
+    *,
+    settings: Settings,
 ) -> None:
     original = db.get(POSTransaction, refund_txn.parent_transaction_id)
     assert original is not None
@@ -369,6 +379,7 @@ async def _send_refund_to_sentry(
         log.warning("sentry refund failed for refund %s: %s", refund_txn.id, exc)
         refund_txn.status = "REFUND_INVENTORY_UPDATE_FAILED"
         refund_txn.last_error = f"{exc.error_code or 'unknown'}: {exc}"
+        fabric_outbox.enqueue(db, refund_txn, settings=settings)
         db.commit()
         try:
             await sentry.log_inbound_activity(
@@ -384,6 +395,7 @@ async def _send_refund_to_sentry(
     refund_txn.status = "COMPLETE"
     refund_txn.sentry_so_id = result.refund_so_id
     original.refund_transaction_id = refund_txn.id
+    fabric_outbox.enqueue(db, refund_txn, settings=settings)
     db.commit()
 
 
