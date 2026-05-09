@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useBookmarks } from "../store/bookmarks";
 import { type CartLine as CartLineType, formatCents, useCart } from "../store/cart";
 import { BinPicker } from "./BinPicker";
 import { SplitLineModal } from "./SplitLineModal";
@@ -15,6 +16,11 @@ type OpenPicker = "warehouse" | "bin" | "split" | null;
 export function CartLine({ line }: Props) {
   const removeLine = useCart((s) => s.removeLine);
   const setQuantity = useCart((s) => s.setQuantity);
+  const addBookmark = useBookmarks((s) => s.add);
+  const removeBookmark = useBookmarks((s) => s.remove);
+  const isBookmarked = useBookmarks((s) =>
+    s.items.some((b) => b.sku === line.sku),
+  );
   const [picker, setPicker] = useState<OpenPicker>(null);
 
   const lineTotal = line.unit_price_cents * line.quantity;
@@ -56,6 +62,25 @@ export function CartLine({ line }: Props) {
               Split
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => {
+              if (isBookmarked) {
+                removeBookmark(line.sku);
+              } else {
+                addBookmark(line.sku, line.name);
+              }
+            }}
+            aria-pressed={isBookmarked}
+            aria-label={
+              isBookmarked
+                ? `Remove ${line.sku} from bookmarks`
+                : `Bookmark ${line.sku}`
+            }
+            className={`rounded-badge border px-2 py-0.5 ${isBookmarked ? "border-brand-red bg-brand-red/10 text-brand-red" : "border-surface-border bg-surface text-ink-muted hover:bg-surface-card"}`}
+          >
+            {isBookmarked ? "Saved" : "Save"}
+          </button>
           {oversold && (
             <span
               role="status"

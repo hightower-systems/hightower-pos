@@ -5,6 +5,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import type { ItemLookupResponse } from "../src/api/items";
 import { Cart } from "../src/components/Cart";
 import { CartTotals } from "../src/components/CartTotals";
+import { useBookmarks } from "../src/store/bookmarks";
 import { useCart } from "../src/store/cart";
 import { renderWithQuery } from "./utils";
 
@@ -38,8 +39,14 @@ const ROD_TWO_WAREHOUSES: ItemLookupResponse = {
   ],
 };
 
-beforeEach(() => useCart.setState({ lines: [] }));
-afterEach(() => useCart.setState({ lines: [] }));
+beforeEach(() => {
+  useCart.setState({ lines: [] });
+  useBookmarks.getState().clear();
+});
+afterEach(() => {
+  useCart.setState({ lines: [] });
+  useBookmarks.getState().clear();
+});
 
 describe("<Cart>", () => {
   it("renders the empty state when there are no lines", () => {
@@ -157,6 +164,33 @@ describe("<Cart>", () => {
     expect(
       screen.getByRole("dialog", { name: /split rod-100/i }),
     ).toBeInTheDocument();
+  });
+
+  it("Save button on a cart line bookmarks the SKU and toggles to Saved", async () => {
+    useCart.getState().addItem(ROD);
+    renderWithQuery(<Cart />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /^bookmark rod-100$/i }),
+    );
+
+    expect(useBookmarks.getState().items).toHaveLength(1);
+    expect(useBookmarks.getState().items[0].sku).toBe("ROD-100");
+    expect(
+      screen.getByRole("button", { name: /remove rod-100 from bookmarks/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("clicking the Save button again removes the bookmark", async () => {
+    useCart.getState().addItem(ROD);
+    useBookmarks.getState().add("ROD-100", "Premium Fly Rod");
+    renderWithQuery(<Cart />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /remove rod-100 from bookmarks/i }),
+    );
+
+    expect(useBookmarks.getState().items).toHaveLength(0);
   });
 });
 
