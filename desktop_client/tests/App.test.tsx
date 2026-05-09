@@ -35,7 +35,7 @@ describe("<App>", () => {
     expect(screen.getByText(/cart is empty/i)).toBeInTheDocument();
   });
 
-  it("routes a must_change_password user to the password-change placeholder", async () => {
+  it("routes a must_change_password user to the change-password screen with the form", async () => {
     server.use(
       http.get(`${API}/api/auth/me`, () =>
         HttpResponse.json({ ...okMe, must_change_password: true }),
@@ -47,5 +47,10 @@ describe("<App>", () => {
         screen.getByText(/password change required/i),
       ).toBeInTheDocument();
     });
+    expect(screen.getByLabelText(/^current password$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^new password$/i)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/^confirm new password$/i),
+    ).toBeInTheDocument();
   });
 });

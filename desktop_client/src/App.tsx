@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { fetchMe } from "./api/auth";
+import { fetchMe, type UserInfo } from "./api/auth";
 import { ApiError } from "./api/client";
+import { ChangePasswordScreen } from "./screens/ChangePasswordScreen";
 import { LoginScreen } from "./screens/LoginScreen";
 import { RegisterScreen } from "./screens/RegisterScreen";
 
@@ -28,6 +29,21 @@ export default function App() {
     return (
       <LoginScreen
         onSuccess={() => {
+          void refetch();
+        }}
+      />
+    );
+  }
+
+  if (data.must_change_password) {
+    return (
+      <ChangePasswordScreen
+        user={data}
+        onChanged={(updated: UserInfo) => {
+          queryClient.setQueryData(["me"], updated);
+        }}
+        onSignedOut={() => {
+          queryClient.removeQueries({ queryKey: ["me"] });
           void refetch();
         }}
       />
