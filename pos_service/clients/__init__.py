@@ -1,3 +1,4 @@
+from pos_service.clients.fabric import FabricClient, FabricClientError
 from pos_service.clients.sentry import SentryClient, SentryClientError, get_sentry_client
 from pos_service.clients.windcave import (
     WindcaveClient,
@@ -7,6 +8,8 @@ from pos_service.clients.windcave import (
 )
 
 __all__ = [
+    "FabricClient",
+    "FabricClientError",
     "SentryClient",
     "SentryClientError",
     "get_sentry_client",
