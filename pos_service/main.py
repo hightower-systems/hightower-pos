@@ -9,6 +9,7 @@ from pos_service.db import get_engine
 from pos_service.routes import admin as admin_routes
 from pos_service.routes import auth as auth_routes
 from pos_service.routes import checkout as checkout_routes
+from pos_service.routes import health as health_routes
 from pos_service.routes import items as items_routes
 from pos_service.routes import prices as prices_routes
 from pos_service.routes import refunds as refunds_routes
@@ -39,6 +40,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(checkout_routes.router)
     app.include_router(refunds_routes.router)
     app.include_router(admin_routes.router)
+    app.include_router(health_routes.router)
 
     return app
 
