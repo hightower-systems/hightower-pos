@@ -33,7 +33,7 @@ UPSERT_BATCH_SIZE = 1000
 
 class _PriceFetcher(Protocol):
     is_mock: bool
-    def fetch_price_catalog(self) -> list[tuple[str, int]]: ...
+    async def fetch_price_catalog(self) -> list[tuple[str, int]]: ...
 
 
 @dataclass(frozen=True)
@@ -44,10 +44,12 @@ class SyncResult:
     error: str | None = None
 
 
-def sync_once(client: _PriceFetcher, session_factory: sessionmaker[Session]) -> SyncResult:
+async def sync_once(
+    client: _PriceFetcher, session_factory: sessionmaker[Session]
+) -> SyncResult:
     started = time.monotonic()
     try:
-        rows = client.fetch_price_catalog()
+        rows = await client.fetch_price_catalog()
     except FabricClientError as exc:
         return SyncResult(
             rows_fetched=0,
@@ -97,7 +99,7 @@ async def run_loop(
     )
     while True:
         try:
-            result = await asyncio.to_thread(sync_once, client, session_factory)
+            result = await sync_once(client, session_factory)
             if result.error:
                 log.error(
                     "fabric_price_sync_failed",

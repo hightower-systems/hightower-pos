@@ -53,7 +53,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     await sync_task
                 except asyncio.CancelledError:
                     pass
-            fabric_client.dispose()
+            await fabric_client.aclose()
 
     app = FastAPI(title="hightower-pos", version=__version__, lifespan=lifespan)
 

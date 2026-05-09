@@ -36,13 +36,6 @@ dev = [
   "pystray>=0.19",
   "Pillow>=10.0",
 ]
-# Installed on the production POS VM only. pyodbc requires the Microsoft
-# ODBC Driver 18 for SQL Server installed at the OS level; macOS dev
-# machines don't need it because tests exercise the Fabric client against
-# an in-memory sqlite engine.
-fabric = [
-  "pyodbc>=5.0",
-]
 
 [project.scripts]
 pos-service = "pos_service.cli:app"

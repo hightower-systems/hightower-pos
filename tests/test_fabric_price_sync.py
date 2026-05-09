@@ -22,7 +22,7 @@ class FakeFabric:
         self.is_mock = False
         self.calls = 0
 
-    def fetch_price_catalog(self) -> list[tuple[str, int]]:
+    async def fetch_price_catalog(self) -> list[tuple[str, int]]:
         self.calls += 1
         if self._raise_error is not None:
             raise FabricClientError(self._raise_error)
@@ -37,10 +37,13 @@ def _read_prices(db_factory: sessionmaker[Session]) -> dict[str, int]:
         }
 
 
-def test_sync_once_inserts_new_rows(engine: Engine, db_factory: sessionmaker[Session]):
+@pytest.mark.asyncio
+async def test_sync_once_inserts_new_rows(
+    engine: Engine, db_factory: sessionmaker[Session]
+):
     client = FakeFabric([("ROD-100", 19999), ("REEL-200", 24500), ("LINE-300", 1499)])
 
-    result = sync_once(client, db_factory)
+    result = await sync_once(client, db_factory)
 
     assert result.rows_fetched == 3
     assert result.rows_upserted == 3
@@ -52,7 +55,8 @@ def test_sync_once_inserts_new_rows(engine: Engine, db_factory: sessionmaker[Ses
     }
 
 
-def test_sync_once_updates_existing_row_price(
+@pytest.mark.asyncio
+async def test_sync_once_updates_existing_row_price(
     engine: Engine, db_factory: sessionmaker[Session]
 ):
     with db_factory() as session:
@@ -60,18 +64,19 @@ def test_sync_once_updates_existing_row_price(
         session.commit()
 
     client = FakeFabric([("ROD-100", 19999)])
-    result = sync_once(client, db_factory)
+    result = await sync_once(client, db_factory)
 
     assert result.rows_upserted == 1
     assert _read_prices(db_factory) == {"ROD-100": 19999}
 
 
-def test_sync_once_empty_catalog_is_noop(
+@pytest.mark.asyncio
+async def test_sync_once_empty_catalog_is_noop(
     engine: Engine, db_factory: sessionmaker[Session]
 ):
     client = FakeFabric([])
 
-    result = sync_once(client, db_factory)
+    result = await sync_once(client, db_factory)
 
     assert result.rows_fetched == 0
     assert result.rows_upserted == 0
@@ -79,12 +84,13 @@ def test_sync_once_empty_catalog_is_noop(
     assert _read_prices(db_factory) == {}
 
 
-def test_sync_once_wraps_fabric_error_without_writing(
+@pytest.mark.asyncio
+async def test_sync_once_wraps_fabric_error_without_writing(
     engine: Engine, db_factory: sessionmaker[Session]
 ):
     client = FakeFabric(raise_error="connection timeout")
 
-    result = sync_once(client, db_factory)
+    result = await sync_once(client, db_factory)
 
     assert result.rows_fetched == 0
     assert result.rows_upserted == 0
@@ -92,13 +98,14 @@ def test_sync_once_wraps_fabric_error_without_writing(
     assert _read_prices(db_factory) == {}
 
 
-def test_sync_once_batches_large_catalog(
+@pytest.mark.asyncio
+async def test_sync_once_batches_large_catalog(
     engine: Engine, db_factory: sessionmaker[Session]
 ):
     rows = [(f"SKU-{i:05d}", 100 + i) for i in range(2500)]
     client = FakeFabric(rows)
 
-    result = sync_once(client, db_factory)
+    result = await sync_once(client, db_factory)
 
     assert result.rows_upserted == 2500
     prices = _read_prices(db_factory)

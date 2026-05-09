@@ -37,8 +37,9 @@ class Settings(BaseSettings):
     price_csv_max_rows: int = 5000
     refund_window_days: int = 90
 
-    fabric_connection_string: str = ""
-    fabric_query_timeout_s: int = 30
+    fabric_transaction_service_url: str = ""
+    fabric_api_key: str = ""
+    fabric_request_timeout_s: float = 30.0
     fabric_sync_interval_s: int = 14400
 
     store_name: str = "AvidMax"
