@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     fabric_sync_interval_s: int = 14400
     fabric_outbox_drain_interval_s: int = 5
     fabric_outbox_batch_size: int = 50
+    fabric_price_catalog_path: str = "/api/v1/prices/catalog"
+    fabric_sales_orders_path: str = "/api/v1/sales_orders"
+    fabric_customer_lookup_path: str = "/api/v1/customers/lookup"
+    fabric_auth_header_name: str = "Authorization"
+    fabric_auth_header_value_prefix: str = "Bearer "
 
     store_name: str = "AvidMax"
     store_address_line_1: str = ""

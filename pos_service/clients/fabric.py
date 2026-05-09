@@ -43,13 +43,15 @@ from pos_service.config import Settings
 
 log = logging.getLogger(__name__)
 
-# TODO(integration): confirm the actual paths with the Fabric engineer
-# when the transaction service URL + auth are finalised. Per the
-# AvidMaxmkv.txt call, the transaction service is one REST surface that
-# routes our payloads to the right Fabric tables.
+# Defaults for the three Fabric transaction-service endpoints. Operators
+# override at runtime via the FABRIC_*_PATH env vars without rebuilding
+# the image; the constants here are the values used when no override is
+# supplied (and the values respx tests pin against).
 PRICE_CATALOG_PATH = "/api/v1/prices/catalog"
 SALES_ORDERS_PATH = "/api/v1/sales_orders"
 CUSTOMER_LOOKUP_PATH = "/api/v1/customers/lookup"
+DEFAULT_AUTH_HEADER_NAME = "Authorization"
+DEFAULT_AUTH_HEADER_VALUE_PREFIX = "Bearer "
 
 
 class FabricClientError(Exception):
@@ -62,15 +64,24 @@ class FabricClient:
         base_url: str,
         api_key: str = "",
         timeout_s: float = 30.0,
+        *,
+        price_catalog_path: str = PRICE_CATALOG_PATH,
+        sales_orders_path: str = SALES_ORDERS_PATH,
+        customer_lookup_path: str = CUSTOMER_LOOKUP_PATH,
+        auth_header_name: str = DEFAULT_AUTH_HEADER_NAME,
+        auth_header_value_prefix: str = DEFAULT_AUTH_HEADER_VALUE_PREFIX,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._timeout_s = timeout_s
+        self._price_catalog_path = price_catalog_path
+        self._sales_orders_path = sales_orders_path
+        self._customer_lookup_path = customer_lookup_path
         self._client: httpx.AsyncClient | None = None
         if base_url:
             headers: dict[str, str] = {"Accept": "application/json"}
             if api_key:
-                headers["Authorization"] = f"Bearer {api_key}"
+                headers[auth_header_name] = f"{auth_header_value_prefix}{api_key}"
             self._client = httpx.AsyncClient(
                 base_url=self._base_url,
                 headers=headers,
@@ -83,6 +94,11 @@ class FabricClient:
             base_url=settings.fabric_transaction_service_url,
             api_key=settings.fabric_api_key,
             timeout_s=settings.fabric_request_timeout_s,
+            price_catalog_path=settings.fabric_price_catalog_path,
+            sales_orders_path=settings.fabric_sales_orders_path,
+            customer_lookup_path=settings.fabric_customer_lookup_path,
+            auth_header_name=settings.fabric_auth_header_name,
+            auth_header_value_prefix=settings.fabric_auth_header_value_prefix,
         )
 
     @property
@@ -93,7 +109,7 @@ class FabricClient:
         if self._client is None:
             return []
         try:
-            response = await self._client.get(PRICE_CATALOG_PATH)
+            response = await self._client.get(self._price_catalog_path)
             response.raise_for_status()
             payload = response.json()
         except httpx.HTTPError as exc:
@@ -133,7 +149,7 @@ class FabricClient:
         if self._client is None:
             raise FabricClientError("fabric_mock_mode")
         try:
-            response = await self._client.post(SALES_ORDERS_PATH, json=payload)
+            response = await self._client.post(self._sales_orders_path, json=payload)
             response.raise_for_status()
             body = response.json()
         except httpx.HTTPError as exc:
@@ -177,7 +193,7 @@ class FabricClient:
         if not params:
             raise FabricClientError("at_least_one_query_param_required")
         try:
-            response = await self._client.get(CUSTOMER_LOOKUP_PATH, params=params)
+            response = await self._client.get(self._customer_lookup_path, params=params)
             if response.status_code == 404:
                 return None
             response.raise_for_status()
