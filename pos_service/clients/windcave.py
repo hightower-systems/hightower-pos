@@ -126,6 +126,7 @@ class WindcaveClient:
             pos_version=settings.windcave_pos_version,
             currency=settings.windcave_currency,
             mock=settings.windcave_mock,
+            initial_backoff_s=settings.windcave_initial_backoff_s,
         )
 
     @property

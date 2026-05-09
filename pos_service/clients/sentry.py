@@ -166,6 +166,7 @@ class SentryClient:
             base_url=settings.sentry_base_url,
             api_token=settings.sentry_api_token,
             mock=settings.sentry_mock,
+            initial_backoff_s=settings.sentry_initial_backoff_s,
         )
 
     @property
