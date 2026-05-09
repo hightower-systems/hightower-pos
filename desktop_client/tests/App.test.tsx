@@ -32,7 +32,7 @@ describe("<App>", () => {
     await waitFor(() => {
       expect(screen.getByText("Mike Hightower")).toBeInTheDocument();
     });
-    expect(screen.getByText(/register ready/i)).toBeInTheDocument();
+    expect(screen.getByText(/cart is empty/i)).toBeInTheDocument();
   });
 
   it("routes a must_change_password user to the password-change placeholder", async () => {

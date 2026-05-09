@@ -1,4 +1,7 @@
 import { type UserInfo, useLogout } from "../api/auth";
+import { Cart } from "../components/Cart";
+import { CartTotals } from "../components/CartTotals";
+import { ScanInput } from "../components/ScanInput";
 import { StatusStrip } from "../components/StatusStrip";
 
 interface Props {
@@ -46,15 +49,12 @@ export function RegisterScreen({ user, onSignedOut }: Props) {
         onSignOut={handleSignOut}
         signOutPending={logout.isPending}
       />
-      <main className="flex flex-1 items-center justify-center text-ink-muted">
-        <div className="text-center">
-          <p className="mb-1 font-mono text-lg uppercase tracking-wider text-ink">
-            Register ready
-          </p>
-          <p className="text-sm">
-            Cart, scan input, and pay panel land in the next commit.
-          </p>
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-4 sm:p-6">
+        <ScanInput />
+        <div className="flex-1 overflow-auto">
+          <Cart />
         </div>
+        <CartTotals />
       </main>
     </div>
   );
