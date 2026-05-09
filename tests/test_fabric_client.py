@@ -178,3 +178,67 @@ async def test_fetch_price_catalog_rejects_malformed_rows():
             await client.fetch_price_catalog()
     finally:
         await client.aclose()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_lookup_customer_returns_match_dict():
+    from pos_service.clients.fabric import CUSTOMER_LOOKUP_PATH
+
+    base = "https://fabric.test"
+    respx.get(f"{base}{CUSTOMER_LOOKUP_PATH}").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "customer_id": "cust-1",
+                "display_name": "Pat Smith",
+                "email": "pat@example.com",
+                "phone": "+13035551234",
+                "registered": True,
+            },
+        )
+    )
+    client = FabricClient(base_url=base)
+    try:
+        match = await client.lookup_customer(email="pat@example.com")
+    finally:
+        await client.aclose()
+    assert match is not None
+    assert match["customer_id"] == "cust-1"
+    assert match["registered"] is True
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_lookup_customer_returns_none_on_404():
+    from pos_service.clients.fabric import CUSTOMER_LOOKUP_PATH
+
+    base = "https://fabric.test"
+    respx.get(f"{base}{CUSTOMER_LOOKUP_PATH}").mock(
+        return_value=httpx.Response(404)
+    )
+    client = FabricClient(base_url=base)
+    try:
+        assert await client.lookup_customer(name="nope") is None
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_lookup_customer_returns_none_on_null_body():
+    from pos_service.clients.fabric import CUSTOMER_LOOKUP_PATH
+
+    base = "https://fabric.test"
+    respx.get(f"{base}{CUSTOMER_LOOKUP_PATH}").mock(
+        return_value=httpx.Response(
+            200,
+            content=b"null",
+            headers={"content-type": "application/json"},
+        )
+    )
+    client = FabricClient(base_url=base)
+    try:
+        assert await client.lookup_customer(name="anyone") is None
+    finally:
+        await client.aclose()

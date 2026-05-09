@@ -103,6 +103,32 @@ def test_build_payload_carries_register_currency_and_lean_shape():
     assert "card_last4" not in payload
 
 
+def test_build_payload_includes_customer_block():
+    txn = POSTransaction(
+        id="txn-001",
+        status="COMPLETE",
+        txn_type="sale",
+        cart_json="[]",
+        subtotal_cents=1000,
+        tax_cents=80,
+        total_cents=1080,
+        payment_method="card",
+        cashier_id="mike",
+        terminal_id="TERM-1",
+        customer_id="cust-1",
+        customer_name="Pat Smith",
+        customer_email="pat@example.com",
+        customer_phone="+13035551234",
+    )
+    payload = build_payload(txn, settings=_make_settings())
+    assert payload["customer"] == {
+        "customer_id": "cust-1",
+        "name": "Pat Smith",
+        "email": "pat@example.com",
+        "phone": "+13035551234",
+    }
+
+
 def test_build_payload_for_refund_carries_parent_id_and_refund_type():
     txn = POSTransaction(
         id="refund-001",

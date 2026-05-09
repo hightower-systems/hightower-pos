@@ -113,6 +113,12 @@ def build_payload(txn: POSTransaction, *, settings: Settings) -> dict[str, Any]:
         "tax_cents": txn.tax_cents,
         "total_cents": txn.total_cents,
         "payment_method": txn.payment_method,
+        "customer": {
+            "customer_id": txn.customer_id,
+            "name": txn.customer_name,
+            "email": txn.customer_email,
+            "phone": txn.customer_phone,
+        },
         "lines": cart,
     }
 

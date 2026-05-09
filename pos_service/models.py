@@ -35,6 +35,11 @@ class POSTransaction(Base):
     cashier_id: Mapped[str] = mapped_column(String, nullable=False)
     terminal_id: Mapped[str] = mapped_column(String, nullable=False)
 
+    customer_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    customer_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    customer_email: Mapped[str | None] = mapped_column(String, nullable=True)
+    customer_phone: Mapped[str | None] = mapped_column(String, nullable=True)
+
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 

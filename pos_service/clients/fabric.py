@@ -37,6 +37,7 @@ import logging
 from typing import Any
 
 import httpx
+from fastapi import Request
 
 from pos_service.config import Settings
 
@@ -48,6 +49,7 @@ log = logging.getLogger(__name__)
 # routes our payloads to the right Fabric tables.
 PRICE_CATALOG_PATH = "/api/v1/prices/catalog"
 SALES_ORDERS_PATH = "/api/v1/sales_orders"
+CUSTOMER_LOOKUP_PATH = "/api/v1/customers/lookup"
 
 
 class FabricClientError(Exception):
@@ -144,7 +146,66 @@ class FabricClient:
             )
         return body
 
+    async def lookup_customer(
+        self,
+        *,
+        name: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Look up a customer in Fabric by name, email, and/or phone.
+
+        Per the architecture call: the Fabric customer platform performs
+        fuzzy matching across an indexed identity store. The POS Service
+        sends whatever the cashier typed; the platform decides whether
+        the identity matches a registered or unregistered record. Returns
+        the matched customer (registered=true) or null when nothing
+        matches; the caller surfaces null as 'unregistered' in the UI.
+
+        Mock mode raises FabricClientError so the cashier sees a clear
+        503 rather than a silent miss.
+        """
+        if self._client is None:
+            raise FabricClientError("fabric_mock_mode")
+        params: dict[str, str] = {}
+        if name:
+            params["name"] = name
+        if email:
+            params["email"] = email
+        if phone:
+            params["phone"] = phone
+        if not params:
+            raise FabricClientError("at_least_one_query_param_required")
+        try:
+            response = await self._client.get(CUSTOMER_LOOKUP_PATH, params=params)
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            body = response.json()
+        except httpx.HTTPError as exc:
+            raise FabricClientError(
+                f"customer lookup failed: {exc}"
+            ) from exc
+        if body is None:
+            return None
+        if not isinstance(body, dict):
+            raise FabricClientError(
+                f"customer lookup returned non-object payload: {type(body).__name__}"
+            )
+        return body
+
     async def aclose(self) -> None:
         if self._client is not None:
             await self._client.aclose()
             self._client = None
+
+
+def get_fabric_client(request: Request) -> FabricClient:
+    """FastAPI dependency that hands out the lifespan-managed FabricClient.
+
+    The lifespan stashes one FabricClient on app.state; endpoints reuse it
+    so the httpx connection pool is shared across requests rather than
+    rebuilt per call. Tests override this dependency with their own client
+    via app.dependency_overrides.
+    """
+    return request.app.state.fabric_client

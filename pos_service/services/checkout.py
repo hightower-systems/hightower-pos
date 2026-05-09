@@ -65,6 +65,7 @@ async def start_checkout(
     *,
     lines: list[dict],
     cashier_id: str,
+    customer: dict | None = None,
 ) -> POSTransaction:
     skus_without_price: list[str] = []
     line_prices: dict[str, int] = {}
@@ -107,6 +108,7 @@ async def start_checkout(
         )
     total_cents = subtotal_cents + tax_cents
 
+    customer = customer or {}
     txn = POSTransaction(
         id=str(uuid.uuid4()),
         status="PENDING_VALIDATION",
@@ -117,6 +119,10 @@ async def start_checkout(
         total_cents=total_cents,
         cashier_id=cashier_id,
         terminal_id=settings.windcave_station,
+        customer_id=customer.get("customer_id") or None,
+        customer_name=customer.get("name") or None,
+        customer_email=customer.get("email") or None,
+        customer_phone=customer.get("phone") or None,
     )
     db.add(txn)
     db.commit()

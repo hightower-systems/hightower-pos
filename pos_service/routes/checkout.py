@@ -33,8 +33,16 @@ class CartLineIn(BaseModel):
     is_taxable: bool = True
 
 
+class CustomerAttachIn(BaseModel):
+    customer_id: str | None = None
+    name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+
+
 class StartRequest(BaseModel):
     lines: list[CartLineIn] = Field(min_length=1)
+    customer: CustomerAttachIn | None = None
 
 
 class StartResponse(BaseModel):
@@ -61,6 +69,7 @@ async def start(
             sentry,
             lines=[line.model_dump() for line in body.lines],
             cashier_id=user.username,
+            customer=body.customer.model_dump() if body.customer else None,
         )
     except CheckoutError as exc:
         raise _to_http(exc) from exc

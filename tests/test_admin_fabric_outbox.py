@@ -68,6 +68,63 @@ def test_completed_cash_sale_writes_a_fabric_outbox_row(
 
 
 @respx.mock
+def test_attached_customer_lands_in_outbox_payload(
+    client: TestClient, db: Session, cashier: POSUser
+) -> None:
+    import json as _json
+
+    from pos_service.models import POSPrice
+
+    db.add(POSPrice(sku="WIDGET-001", unit_price_cents=1999))
+    db.commit()
+    respx.post(f"{SENTRY_BASE}/api/pos/validate-cart").mock(
+        return_value=httpx.Response(200, json={"valid": True})
+    )
+    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+        return_value=httpx.Response(
+            200, json={"so_id": "SO-1", "so_number": "SO-1", "replayed": False}
+        )
+    )
+    _login_cashier(client)
+    started = client.post(
+        "/api/checkout/start",
+        json={
+            "lines": [
+                {
+                    "sku": "WIDGET-001",
+                    "name": "Widget",
+                    "warehouse_id": "WH-STORE",
+                    "bin_id": "BIN-A1",
+                    "quantity": 1,
+                    "is_taxable": True,
+                }
+            ],
+            "customer": {
+                "customer_id": "cust-1",
+                "name": "Pat Smith",
+                "email": "pat@example.com",
+                "phone": "+13035551234",
+            },
+        },
+    )
+    txn_id = started.json()["transaction_id"]
+    client.post(
+        f"/api/checkout/{txn_id}/charge-cash",
+        json={"amount_tendered_cents": 5000},
+    )
+
+    rows = list(db.query(FabricOutboxEntry).all())
+    assert len(rows) == 1
+    payload = _json.loads(rows[0].payload_json)
+    assert payload["customer"] == {
+        "customer_id": "cust-1",
+        "name": "Pat Smith",
+        "email": "pat@example.com",
+        "phone": "+13035551234",
+    }
+
+
+@respx.mock
 def test_list_fabric_outbox_requires_auth(client: TestClient) -> None:
     r = client.get("/api/admin/fabric-outbox")
     assert r.status_code == 401
