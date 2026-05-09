@@ -12,8 +12,16 @@ export interface CheckoutLineIn {
   is_taxable: boolean;
 }
 
+export interface CheckoutCustomerIn {
+  customer_id?: string | null;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}
+
 export interface StartCheckoutRequest {
   lines: CheckoutLineIn[];
+  customer?: CheckoutCustomerIn | null;
 }
 
 export interface StartCheckoutResponse {

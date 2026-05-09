@@ -4,17 +4,20 @@ import { screen } from "@testing-library/react";
 
 import { RegisterActions } from "../src/components/RegisterActions";
 import { useCheckout } from "../src/store/checkout";
+import { useCustomer } from "../src/store/customer";
 import { useRefund } from "../src/store/refund";
 import { renderWithQuery } from "./utils";
 
 beforeEach(() => {
   useRefund.getState().reset();
   useCheckout.getState().reset();
+  useCustomer.getState().reset();
 });
 
 afterEach(() => {
   useRefund.getState().reset();
   useCheckout.getState().reset();
+  useCustomer.getState().reset();
 });
 
 describe("<RegisterActions>", () => {
@@ -45,5 +48,31 @@ describe("<RegisterActions>", () => {
     expect(
       screen.getByRole("button", { name: /refund a sale/i }),
     ).toBeDisabled();
+  });
+
+  it("Attach Customer opens the customer lookup phase", async () => {
+    renderWithQuery(<RegisterActions />);
+    await userEvent.click(
+      screen.getByRole("button", { name: /attach customer/i }),
+    );
+    expect(useCustomer.getState().phase).toBe("lookup");
+  });
+
+  it("renders the chip with the attached customer's name and detaches on click", async () => {
+    useCustomer.getState().setAttached({
+      customer_id: "cust-1",
+      name: "Pat Smith",
+      email: "pat@example.com",
+      phone: null,
+      registered: true,
+    });
+    renderWithQuery(<RegisterActions />);
+    expect(screen.getByTestId("attached-customer-chip")).toHaveTextContent(
+      "Pat Smith",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /detach customer/i }),
+    );
+    expect(useCustomer.getState().attached).toBeNull();
   });
 });

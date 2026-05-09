@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { usePrintReceipt } from "../api/printAgent";
 import { formatCents, useCart } from "../store/cart";
 import { isSuccessStatus, useCheckout } from "../store/checkout";
+import { useCustomer } from "../store/customer";
 import { Modal } from "./Modal";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -21,6 +22,7 @@ export function PaymentResult() {
   const error = useCheckout((s) => s.error);
   const reset = useCheckout((s) => s.reset);
   const clearCart = useCart((s) => s.clear);
+  const detachCustomer = useCustomer((s) => s.detach);
   const printReceipt = usePrintReceipt();
   const printedTxnRef = useRef<string | null>(null);
 
@@ -46,7 +48,10 @@ export function PaymentResult() {
   const title = (status && STATUS_LABELS[status]) ?? "Payment result";
 
   function handleDone() {
-    if (success) clearCart();
+    if (success) {
+      clearCart();
+      detachCustomer();
+    }
     reset();
   }
 

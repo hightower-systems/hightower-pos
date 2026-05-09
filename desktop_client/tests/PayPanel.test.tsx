@@ -7,6 +7,7 @@ import type { ItemLookupResponse } from "../src/api/items";
 import { PayPanel } from "../src/components/PayPanel";
 import { useCart } from "../src/store/cart";
 import { useCheckout } from "../src/store/checkout";
+import { useCustomer } from "../src/store/customer";
 import { server } from "./msw/server";
 import { renderWithQuery } from "./utils";
 
@@ -32,11 +33,13 @@ const ROD: ItemLookupResponse = {
 beforeEach(() => {
   useCart.setState({ lines: [] });
   useCheckout.getState().reset();
+  useCustomer.getState().reset();
 });
 
 afterEach(() => {
   useCart.setState({ lines: [] });
   useCheckout.getState().reset();
+  useCustomer.getState().reset();
 });
 
 describe("<PayPanel>", () => {
@@ -112,6 +115,51 @@ describe("<PayPanel>", () => {
       expect(useCheckout.getState().phase).toBe("in_flight");
     });
     expect(useCheckout.getState().transactionId).toBe("txn-123");
+  });
+
+  it("includes the attached customer block in the /start payload", async () => {
+    let captured: Record<string, unknown> = {};
+    server.use(
+      http.post(`${API}/api/checkout/start`, async ({ request }) => {
+        captured = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({
+          transaction_id: "txn-c1",
+          status: "AWAITING_PAYMENT",
+          tax_rate: 0.0810,
+          subtotal_cents: 19999,
+          tax_cents: 1620,
+          total_cents: 21619,
+        });
+      }),
+      http.post(`${API}/api/checkout/txn-c1/charge-card`, () =>
+        HttpResponse.json({
+          transaction_id: "txn-c1",
+          status: "PAYMENT_IN_FLIGHT",
+        }),
+      ),
+    );
+
+    useCart.getState().addItem(ROD);
+    useCustomer.getState().setAttached({
+      customer_id: "cust-1",
+      name: "Pat Smith",
+      email: "pat@example.com",
+      phone: "+13035551234",
+      registered: true,
+    });
+    renderWithQuery(<PayPanel />);
+
+    await userEvent.click(screen.getByRole("button", { name: /pay with card/i }));
+
+    await waitFor(() => {
+      expect(captured.customer).toBeDefined();
+    });
+    expect(captured.customer).toEqual({
+      customer_id: "cust-1",
+      name: "Pat Smith",
+      email: "pat@example.com",
+      phone: "+13035551234",
+    });
   });
 
   it("renders the failure path when /start returns 5xx", async () => {

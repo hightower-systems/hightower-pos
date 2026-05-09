@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useChargeCard, useStartCheckout } from "../api/checkout";
 import { computeTotals, formatCents, useCart } from "../store/cart";
 import { useCheckout } from "../store/checkout";
+import { useCustomer } from "../store/customer";
 
 export function PayPanel() {
   const lines = useCart((s) => s.lines);
@@ -11,6 +12,7 @@ export function PayPanel() {
   const startedCash = useCheckout((s) => s.startedCash);
   const failed = useCheckout((s) => s.failed);
   const phase = useCheckout((s) => s.phase);
+  const attachedCustomer = useCustomer((s) => s.attached);
   const [localError, setLocalError] = useState<string | null>(null);
 
   const start = useStartCheckout();
@@ -32,11 +34,22 @@ export function PayPanel() {
     }));
   }
 
+  function buildCustomerPayload() {
+    if (!attachedCustomer) return undefined;
+    return {
+      customer_id: attachedCustomer.customer_id,
+      name: attachedCustomer.name,
+      email: attachedCustomer.email,
+      phone: attachedCustomer.phone,
+    };
+  }
+
   async function handleCard() {
     setLocalError(null);
     try {
       const startResp = await start.mutateAsync({
         lines: buildLinesPayload(),
+        customer: buildCustomerPayload(),
       });
       const chargeResp = await charge.mutateAsync({
         transactionId: startResp.transaction_id,
@@ -55,6 +68,7 @@ export function PayPanel() {
     try {
       const startResp = await start.mutateAsync({
         lines: buildLinesPayload(),
+        customer: buildCustomerPayload(),
       });
       startedCash(startResp.transaction_id, startResp.total_cents);
     } catch (err) {

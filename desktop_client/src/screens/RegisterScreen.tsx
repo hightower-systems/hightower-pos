@@ -1,4 +1,5 @@
 import { type UserInfo, useLogout } from "../api/auth";
+import { AttachCustomerModal } from "../components/AttachCustomerModal";
 import { Cart } from "../components/Cart";
 import { CartTotals } from "../components/CartTotals";
 import { CashTenderModal } from "../components/CashTenderModal";
@@ -67,6 +68,7 @@ export function RegisterScreen({ user, onSignedOut }: Props) {
         <CartTotals />
         <PayPanel />
       </main>
+      <AttachCustomerModal />
       <CashTenderModal />
       <PaymentInFlight />
       <PaymentResult />

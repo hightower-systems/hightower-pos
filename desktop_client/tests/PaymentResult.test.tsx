@@ -7,6 +7,7 @@ import type { ItemLookupResponse } from "../src/api/items";
 import { PaymentResult } from "../src/components/PaymentResult";
 import { useCart } from "../src/store/cart";
 import { useCheckout } from "../src/store/checkout";
+import { useCustomer } from "../src/store/customer";
 import { server } from "./msw/server";
 import { renderWithQuery } from "./utils";
 
@@ -44,11 +45,13 @@ const COMPLETE_RESULT = {
 beforeEach(() => {
   useCart.setState({ lines: [] });
   useCheckout.getState().reset();
+  useCustomer.getState().reset();
 });
 
 afterEach(() => {
   useCart.setState({ lines: [] });
   useCheckout.getState().reset();
+  useCustomer.getState().reset();
 });
 
 describe("<PaymentResult>", () => {
@@ -96,6 +99,39 @@ describe("<PaymentResult>", () => {
 
     expect(useCart.getState().lines).toEqual([]);
     expect(useCheckout.getState().phase).toBe("idle");
+  });
+
+  it("Done on success also detaches the attached customer", async () => {
+    useCart.getState().addItem(ROD);
+    useCustomer.getState().setAttached({
+      customer_id: "cust-1",
+      name: "Pat Smith",
+      email: null,
+      phone: null,
+      registered: true,
+    });
+    useCheckout.getState().finished("COMPLETE", COMPLETE_RESULT, null);
+    renderWithQuery(<PaymentResult />);
+
+    await userEvent.click(screen.getByRole("button", { name: /done/i }));
+
+    expect(useCustomer.getState().attached).toBeNull();
+  });
+
+  it("Done on failure preserves the attached customer", async () => {
+    useCustomer.getState().setAttached({
+      customer_id: "cust-1",
+      name: "Pat Smith",
+      email: null,
+      phone: null,
+      registered: true,
+    });
+    useCheckout.getState().failed("network error");
+    renderWithQuery(<PaymentResult />);
+
+    await userEvent.click(screen.getByRole("button", { name: /done/i }));
+
+    expect(useCustomer.getState().attached).not.toBeNull();
   });
 
   it("Done on failure preserves the cart but resets the checkout store", async () => {
