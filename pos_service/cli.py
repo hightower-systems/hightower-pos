@@ -37,7 +37,7 @@ def _print_report(label: str, report: reconciliation.RetryReport) -> None:
 
 @app.command("retry-failed-sales")
 def retry_failed_sales_cmd() -> None:
-    """Retry Sentry's POST /api/pos/checkout for INVENTORY_UPDATE_FAILED rows."""
+    """Retry Sentry's POST /api/v1/pos/checkout for INVENTORY_UPDATE_FAILED rows."""
     settings = get_settings()
     sentry = SentryClient.from_settings(settings)
     factory = get_session_factory()
@@ -52,7 +52,7 @@ def retry_failed_sales_cmd() -> None:
 
 @app.command("retry-failed-refunds")
 def retry_failed_refunds_cmd() -> None:
-    """Retry Sentry's POST /api/pos/refund for REFUND_INVENTORY_UPDATE_FAILED rows."""
+    """Retry Sentry's POST /api/v1/pos/refund for REFUND_INVENTORY_UPDATE_FAILED rows."""
     settings = get_settings()
     sentry = SentryClient.from_settings(settings)
     factory = get_session_factory()

@@ -20,10 +20,10 @@ def _ring_up_cash_sale(client: TestClient, db: Session) -> str:
     inserted by hand. Returns the transaction id."""
     db.add(POSPrice(sku="WIDGET-001", unit_price_cents=1999))
     db.commit()
-    respx.post(f"{SENTRY_BASE}/api/pos/validate-cart").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/validate-cart").mock(
         return_value=httpx.Response(200, json={"valid": True})
     )
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200,
             json={"so_id": "SO-1", "so_number": "SO-1", "replayed": False},
@@ -77,10 +77,10 @@ def test_attached_customer_lands_in_outbox_payload(
 
     db.add(POSPrice(sku="WIDGET-001", unit_price_cents=1999))
     db.commit()
-    respx.post(f"{SENTRY_BASE}/api/pos/validate-cart").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/validate-cart").mock(
         return_value=httpx.Response(200, json={"valid": True})
     )
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200, json={"so_id": "SO-1", "so_number": "SO-1", "replayed": False}
         )

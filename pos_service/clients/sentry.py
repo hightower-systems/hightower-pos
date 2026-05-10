@@ -181,7 +181,7 @@ class SentryClient:
         if self._mock:
             return _mock_item_availability(sku=sku, barcode=barcode)
         params = {"barcode": barcode} if barcode else {"sku": sku}
-        r = await self._request("GET", "/api/pos/availability", params=params)
+        r = await self._request("GET", "/api/v1/pos/availability", params=params)
         if r.status_code == 404:
             body = _safe_json(r)
             raise SentryClientError(
@@ -197,7 +197,7 @@ class SentryClient:
         if self._mock:
             return ValidationResult(valid=True)
         body = {"lines": [line.model_dump() for line in lines]}
-        r = await self._request("POST", "/api/pos/validate-cart", json=body)
+        r = await self._request("POST", "/api/v1/pos/validate-cart", json=body)
         if r.status_code == 409:
             payload = _safe_json(r)
             return ValidationResult.model_validate(payload)
@@ -213,7 +213,7 @@ class SentryClient:
             )
         r = await self._request(
             "POST",
-            "/api/pos/checkout",
+            "/api/v1/pos/checkout",
             json=request.model_dump(mode="json"),
         )
         if r.status_code in {409, 422}:
@@ -236,7 +236,7 @@ class SentryClient:
             )
         r = await self._request(
             "POST",
-            "/api/pos/refund",
+            "/api/v1/pos/refund",
             json=request.model_dump(mode="json"),
         )
         if r.status_code in {409, 422}:
@@ -278,7 +278,7 @@ class SentryClient:
         params: dict[str, Any] | None = None,
         json: Any = None,
     ) -> httpx.Response:
-        headers = {"Authorization": f"Bearer {self._token}"}
+        headers = {"X-WMS-Token": self._token}
         last_exc: Exception | None = None
         for attempt in range(MAX_RETRIES):
             try:

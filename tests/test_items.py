@@ -60,7 +60,7 @@ def test_lookup_happy_path_by_sku(
 ) -> None:
     db.add(POSPrice(sku="WIDGET-001", unit_price_cents=1999))
     db.commit()
-    respx.get(f"{SENTRY_BASE}/api/pos/availability").mock(
+    respx.get(f"{SENTRY_BASE}/api/v1/pos/availability").mock(
         return_value=httpx.Response(200, json=_availability_payload())
     )
     _login_cashier(client, cashier)
@@ -81,7 +81,7 @@ def test_lookup_happy_path_by_barcode(
 ) -> None:
     db.add(POSPrice(sku="WIDGET-001", unit_price_cents=1999))
     db.commit()
-    route = respx.get(f"{SENTRY_BASE}/api/pos/availability").mock(
+    route = respx.get(f"{SENTRY_BASE}/api/v1/pos/availability").mock(
         return_value=httpx.Response(200, json=_availability_payload())
     )
     _login_cashier(client, cashier)
@@ -94,7 +94,7 @@ def test_lookup_happy_path_by_barcode(
 def test_lookup_404_from_sentry_returns_item_not_found(
     client: TestClient, cashier: POSUser
 ) -> None:
-    respx.get(f"{SENTRY_BASE}/api/pos/availability").mock(
+    respx.get(f"{SENTRY_BASE}/api/v1/pos/availability").mock(
         return_value=httpx.Response(404, json={"error": "item_not_found"})
     )
     _login_cashier(client, cashier)
@@ -107,7 +107,7 @@ def test_lookup_404_from_sentry_returns_item_not_found(
 def test_lookup_5xx_from_sentry_returns_502(
     client: TestClient, cashier: POSUser
 ) -> None:
-    respx.get(f"{SENTRY_BASE}/api/pos/availability").mock(
+    respx.get(f"{SENTRY_BASE}/api/v1/pos/availability").mock(
         return_value=httpx.Response(503, json={})
     )
     _login_cashier(client, cashier)
@@ -120,7 +120,7 @@ def test_lookup_5xx_from_sentry_returns_502(
 def test_lookup_returns_422_when_price_missing(
     client: TestClient, cashier: POSUser, db
 ) -> None:
-    respx.get(f"{SENTRY_BASE}/api/pos/availability").mock(
+    respx.get(f"{SENTRY_BASE}/api/v1/pos/availability").mock(
         return_value=httpx.Response(200, json=_availability_payload())
     )
     _login_cashier(client, cashier)

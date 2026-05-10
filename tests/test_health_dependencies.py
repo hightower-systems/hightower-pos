@@ -25,7 +25,7 @@ def test_dependencies_sentry_reachable_via_404(
     """A 404 from Sentry's availability endpoint means Sentry is up and
     answering; the SKU is just unknown. The health probe treats 404 as
     a positive reachability signal."""
-    respx.get(f"{SENTRY_BASE}/api/pos/availability").mock(
+    respx.get(f"{SENTRY_BASE}/api/v1/pos/availability").mock(
         return_value=httpx.Response(404, json={"error": "item_not_found"})
     )
     _login_cashier(client, cashier)
@@ -41,7 +41,7 @@ def test_dependencies_sentry_reachable_via_404(
 def test_dependencies_sentry_unreachable_on_5xx(
     client: TestClient, cashier: POSUser
 ) -> None:
-    respx.get(f"{SENTRY_BASE}/api/pos/availability").mock(
+    respx.get(f"{SENTRY_BASE}/api/v1/pos/availability").mock(
         return_value=httpx.Response(503, json={})
     )
     _login_cashier(client, cashier)
@@ -56,7 +56,7 @@ def test_dependencies_sentry_unreachable_on_5xx(
 def test_dependencies_reports_windcave_config(
     client: TestClient, cashier: POSUser
 ) -> None:
-    respx.get(f"{SENTRY_BASE}/api/pos/availability").mock(
+    respx.get(f"{SENTRY_BASE}/api/v1/pos/availability").mock(
         return_value=httpx.Response(404, json={"error": "item_not_found"})
     )
     _login_cashier(client, cashier)
@@ -70,7 +70,7 @@ def test_dependencies_reports_windcave_config(
 def test_dependencies_returns_terminal_id_and_version(
     client: TestClient, cashier: POSUser
 ) -> None:
-    respx.get(f"{SENTRY_BASE}/api/pos/availability").mock(
+    respx.get(f"{SENTRY_BASE}/api/v1/pos/availability").mock(
         return_value=httpx.Response(404, json={"error": "item_not_found"})
     )
     _login_cashier(client, cashier)

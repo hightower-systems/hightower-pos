@@ -27,7 +27,7 @@ def _seed_prices(db: Session, *items: tuple[str, int]) -> None:
 
 
 def _validate_cart_ok() -> None:
-    respx.post(f"{SENTRY_BASE}/api/pos/validate-cart").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/validate-cart").mock(
         return_value=httpx.Response(200, json={"valid": True})
     )
 
@@ -185,7 +185,7 @@ def test_start_validation_409_marks_validation_failed_and_returns_conflicts(
     client: TestClient, cashier: POSUser, db: Session
 ) -> None:
     _seed_prices(db, ("WIDGET-001", 1999))
-    respx.post(f"{SENTRY_BASE}/api/pos/validate-cart").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/validate-cart").mock(
         return_value=httpx.Response(
             409,
             json={
@@ -231,7 +231,7 @@ def test_charge_cash_happy_path(
 ) -> None:
     _seed_prices(db, ("WIDGET-001", 1999))
     _validate_cart_ok()
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200,
             json={"so_id": "SO-2026-001", "so_number": "SO-2026-001", "replayed": False},
@@ -286,7 +286,7 @@ def test_charge_cash_sentry_failure_marks_inventory_update_failed(
 ) -> None:
     _seed_prices(db, ("WIDGET-001", 1999))
     _validate_cart_ok()
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(422, json={"error": "fulfillment_failed"})
     )
     activity_log = respx.post(f"{SENTRY_BASE}/api/inbound-activity-log").mock(
@@ -313,7 +313,7 @@ def test_charge_card_mock_mode_completes_synchronously(
 ) -> None:
     _seed_prices(db, ("WIDGET-001", 1999))
     _validate_cart_ok()
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200,
             json={"so_id": "SO-MOCK", "so_number": "SO-MOCK", "replayed": False},
@@ -417,7 +417,7 @@ def test_charge_card_real_path_polls_until_approved(
 ) -> None:
     _seed_prices(db, ("WIDGET-001", 1999))
     _validate_cart_ok()
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200, json={"so_id": "SO-X", "so_number": "SO-X", "replayed": False}
         )
@@ -523,7 +523,7 @@ def test_status_endpoint_for_in_progress_and_complete(
     assert body["is_terminal"] is False
     assert body["result"] is None
 
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200, json={"so_id": "SO-1", "so_number": "SO-1", "replayed": False}
         )
@@ -568,7 +568,7 @@ def test_cancel_after_complete_returns_400(
 ) -> None:
     _seed_prices(db, ("WIDGET-001", 1999))
     _validate_cart_ok()
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200, json={"so_id": "SO-1", "so_number": "SO-1", "replayed": False}
         )

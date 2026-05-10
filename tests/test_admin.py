@@ -16,7 +16,7 @@ def _login_cashier(client: TestClient, cashier: POSUser) -> None:
 
 
 def _validate_cart_ok() -> None:
-    respx.post(f"{SENTRY_BASE}/api/pos/validate-cart").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/validate-cart").mock(
         return_value=httpx.Response(200, json={"valid": True})
     )
 
@@ -27,7 +27,7 @@ def _start_and_complete_cash_sale(
     db.add(POSPrice(sku="WIDGET-001", unit_price_cents=1999))
     db.commit()
     _validate_cart_ok()
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200, json={"so_id": "SO-PARENT", "so_number": "SO-PARENT", "replayed": False}
         )
@@ -117,7 +117,7 @@ def test_get_transaction_detail_links_sale_to_refund_counterpart(
     client: TestClient, cashier: POSUser, db: Session
 ) -> None:
     sale_id = _start_and_complete_cash_sale(client, db, cashier)
-    respx.post(f"{SENTRY_BASE}/api/pos/refund").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/refund").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -157,7 +157,7 @@ def test_retry_sentry_for_failed_sale_succeeds(
     db.add(POSPrice(sku="WIDGET-001", unit_price_cents=1999))
     db.commit()
     _validate_cart_ok()
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         side_effect=[
             httpx.Response(422, json={"error": "fulfillment_failed"}),
             httpx.Response(
@@ -230,7 +230,7 @@ def test_retry_sentry_still_failing_returns_succeeded_false(
     db.add(POSPrice(sku="WIDGET-001", unit_price_cents=1999))
     db.commit()
     _validate_cart_ok()
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(422, json={"error": "fulfillment_failed"})
     )
     respx.post(f"{SENTRY_BASE}/api/inbound-activity-log").mock(

@@ -43,13 +43,13 @@ def _availability_payload() -> dict:
 
 @respx.mock
 async def test_lookup_availability_by_sku() -> None:
-    route = respx.get(f"{BASE_URL}/api/pos/availability").mock(
+    route = respx.get(f"{BASE_URL}/api/v1/pos/availability").mock(
         return_value=httpx.Response(200, json=_availability_payload())
     )
     item = await _client().lookup_availability(sku="WIDGET-001")
     assert route.called
     assert route.calls.last.request.url.params["sku"] == "WIDGET-001"
-    assert route.calls.last.request.headers["authorization"] == "Bearer test-token"
+    assert route.calls.last.request.headers["x-wms-token"] == "test-token"
     assert isinstance(item, ItemAvailability)
     assert item.sku == "WIDGET-001"
     assert item.availability[0].warehouse_id == "store"
@@ -57,7 +57,7 @@ async def test_lookup_availability_by_sku() -> None:
 
 @respx.mock
 async def test_lookup_availability_by_barcode() -> None:
-    respx.get(f"{BASE_URL}/api/pos/availability").mock(
+    respx.get(f"{BASE_URL}/api/v1/pos/availability").mock(
         return_value=httpx.Response(200, json=_availability_payload())
     )
     item = await _client().lookup_availability(barcode="012345678901")
@@ -66,7 +66,7 @@ async def test_lookup_availability_by_barcode() -> None:
 
 @respx.mock
 async def test_lookup_availability_404_raises() -> None:
-    respx.get(f"{BASE_URL}/api/pos/availability").mock(
+    respx.get(f"{BASE_URL}/api/v1/pos/availability").mock(
         return_value=httpx.Response(404, json={"error": "item_not_found", "message": "no"})
     )
     with pytest.raises(SentryClientError) as exc:
@@ -84,7 +84,7 @@ async def test_lookup_availability_requires_one_identifier() -> None:
 
 @respx.mock
 async def test_validate_cart_valid() -> None:
-    respx.post(f"{BASE_URL}/api/pos/validate-cart").mock(
+    respx.post(f"{BASE_URL}/api/v1/pos/validate-cart").mock(
         return_value=httpx.Response(200, json={"valid": True})
     )
     result = await _client().validate_cart(
@@ -96,7 +96,7 @@ async def test_validate_cart_valid() -> None:
 
 @respx.mock
 async def test_validate_cart_409_returns_conflicts() -> None:
-    respx.post(f"{BASE_URL}/api/pos/validate-cart").mock(
+    respx.post(f"{BASE_URL}/api/v1/pos/validate-cart").mock(
         return_value=httpx.Response(
             409,
             json={
@@ -161,7 +161,7 @@ def _checkout_request(idem: str = "abc-123") -> CheckoutRequest:
 
 @respx.mock
 async def test_create_pos_so_returns_so_id() -> None:
-    respx.post(f"{BASE_URL}/api/pos/checkout").mock(
+    respx.post(f"{BASE_URL}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200, json={"so_id": "SO-2026-04827", "so_number": "SO-2026-04827", "replayed": False}
         )
@@ -173,7 +173,7 @@ async def test_create_pos_so_returns_so_id() -> None:
 
 @respx.mock
 async def test_create_pos_so_idempotent_replay_flag() -> None:
-    respx.post(f"{BASE_URL}/api/pos/checkout").mock(
+    respx.post(f"{BASE_URL}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200, json={"so_id": "SO-2026-04827", "so_number": "SO-2026-04827", "replayed": True}
         )
@@ -184,7 +184,7 @@ async def test_create_pos_so_idempotent_replay_flag() -> None:
 
 @respx.mock
 async def test_create_pos_so_409_idempotency_conflict_raises() -> None:
-    respx.post(f"{BASE_URL}/api/pos/checkout").mock(
+    respx.post(f"{BASE_URL}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             409, json={"error": "idempotency_conflict", "existing_so_id": "SO-X"}
         )
@@ -197,7 +197,7 @@ async def test_create_pos_so_409_idempotency_conflict_raises() -> None:
 
 @respx.mock
 async def test_create_pos_so_422_fulfillment_failed_raises() -> None:
-    respx.post(f"{BASE_URL}/api/pos/checkout").mock(
+    respx.post(f"{BASE_URL}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             422,
             json={
@@ -243,7 +243,7 @@ def _refund_request() -> RefundRequest:
 
 @respx.mock
 async def test_create_pos_refund_returns_credit_memo_id() -> None:
-    respx.post(f"{BASE_URL}/api/pos/refund").mock(
+    respx.post(f"{BASE_URL}/api/v1/pos/refund").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -260,7 +260,7 @@ async def test_create_pos_refund_returns_credit_memo_id() -> None:
 
 @respx.mock
 async def test_create_pos_refund_422_window_expired() -> None:
-    respx.post(f"{BASE_URL}/api/pos/refund").mock(
+    respx.post(f"{BASE_URL}/api/v1/pos/refund").mock(
         return_value=httpx.Response(422, json={"error": "refund_window_expired"})
     )
     with pytest.raises(SentryClientError) as exc:
@@ -283,12 +283,12 @@ async def test_log_inbound_activity_posts_payload() -> None:
     sent = route.calls.last.request
     body = sent.read().decode()
     assert "checkout_failed_post_payment" in body
-    assert sent.headers["authorization"] == "Bearer test-token"
+    assert sent.headers["x-wms-token"] == "test-token"
 
 
 @respx.mock
 async def test_retries_5xx_then_succeeds() -> None:
-    route = respx.get(f"{BASE_URL}/api/pos/availability").mock(
+    route = respx.get(f"{BASE_URL}/api/v1/pos/availability").mock(
         side_effect=[
             httpx.Response(503, json={}),
             httpx.Response(503, json={}),
@@ -302,7 +302,7 @@ async def test_retries_5xx_then_succeeds() -> None:
 
 @respx.mock
 async def test_retries_exhausted_raises() -> None:
-    respx.get(f"{BASE_URL}/api/pos/availability").mock(
+    respx.get(f"{BASE_URL}/api/v1/pos/availability").mock(
         return_value=httpx.Response(503, json={})
     )
     with pytest.raises(SentryClientError) as exc:
@@ -312,7 +312,7 @@ async def test_retries_exhausted_raises() -> None:
 
 @respx.mock
 async def test_does_not_retry_4xx() -> None:
-    route = respx.post(f"{BASE_URL}/api/pos/checkout").mock(
+    route = respx.post(f"{BASE_URL}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(409, json={"error": "idempotency_conflict"})
     )
     with pytest.raises(SentryClientError):

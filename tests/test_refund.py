@@ -20,7 +20,7 @@ def _login_cashier(client: TestClient, cashier: POSUser) -> None:
 
 
 def _validate_cart_ok() -> None:
-    respx.post(f"{SENTRY_BASE}/api/pos/validate-cart").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/validate-cart").mock(
         return_value=httpx.Response(200, json={"valid": True})
     )
 
@@ -63,7 +63,7 @@ def _completed_cash_sale(
     the transaction id, so refund tests have a refundable parent."""
     _seed_prices(db, ("WIDGET-001", 1999))
     _validate_cart_ok()
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200,
             json={"so_id": "SO-PARENT", "so_number": "SO-PARENT", "replayed": False},
@@ -89,7 +89,7 @@ def _completed_card_sale(
     try:
         _seed_prices(db, ("WIDGET-001", 1999))
         _validate_cart_ok()
-        respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+        respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -219,7 +219,7 @@ def test_charge_cash_refund_happy_path(
     client: TestClient, cashier: POSUser, db: Session
 ) -> None:
     txn_id = _completed_cash_sale(client, db, cashier)
-    refund_route = respx.post(f"{SENTRY_BASE}/api/pos/refund").mock(
+    refund_route = respx.post(f"{SENTRY_BASE}/api/v1/pos/refund").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -287,7 +287,7 @@ def test_charge_card_refund_mock_mode_completes(
 ) -> None:
     txn_id = _completed_card_sale(client, db, cashier, settings)
     settings.windcave_mock = True  # turn back on after the sale helper turned it off
-    respx.post(f"{SENTRY_BASE}/api/pos/refund").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/refund").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -372,7 +372,7 @@ def test_charge_card_refund_real_path_polls_until_approved(
     client: TestClient, cashier: POSUser, db: Session, settings
 ) -> None:
     txn_id = _completed_card_sale(client, db, cashier, settings)
-    respx.post(f"{SENTRY_BASE}/api/pos/refund").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/refund").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -458,7 +458,7 @@ def test_charge_cash_refund_sentry_failure_marks_inventory_update_failed(
     client: TestClient, cashier: POSUser, db: Session
 ) -> None:
     txn_id = _completed_cash_sale(client, db, cashier)
-    respx.post(f"{SENTRY_BASE}/api/pos/refund").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/refund").mock(
         return_value=httpx.Response(422, json={"error": "fulfillment_failed"})
     )
     activity_log = respx.post(f"{SENTRY_BASE}/api/inbound-activity-log").mock(
