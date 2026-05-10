@@ -214,7 +214,7 @@ class SentryClient:
         r = await self._request(
             "POST",
             "/api/v1/pos/checkout",
-            json=request.model_dump(mode="json"),
+            json=request.model_dump(mode="json", exclude_none=True),
         )
         if r.status_code in {409, 422}:
             body = _safe_json(r)
@@ -237,7 +237,7 @@ class SentryClient:
         r = await self._request(
             "POST",
             "/api/v1/pos/refund",
-            json=request.model_dump(mode="json"),
+            json=request.model_dump(mode="json", exclude_none=True),
         )
         if r.status_code in {409, 422}:
             body = _safe_json(r)
