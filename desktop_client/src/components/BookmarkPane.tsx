@@ -11,22 +11,34 @@ import {
 
 // Tailwind class per color name. Kept static (not built from a
 // template string) so the JIT purge picks up every class at build
-// time. 'none' renders as a thin neutral divider so the bar still
-// reads as 'clickable target' even before a color is picked.
-const COLOR_BAR_CLASS: Record<BookmarkColor, string> = {
-  // 'none' is the unset state. A diagonal-stripe SVG pattern reads
-  // as 'clickable but blank' so the affordance is discoverable even
-  // before the cashier has picked a color (prior solid grey looked
-  // identical to the card border and disappeared).
-  none:
-    "bg-[repeating-linear-gradient(45deg,_theme(colors.surface.border)_0,_theme(colors.surface.border)_4px,_theme(colors.surface.card)_4px,_theme(colors.surface.card)_8px)]",
-  red: "bg-red-500",
-  orange: "bg-orange-500",
-  yellow: "bg-yellow-400",
-  green: "bg-green-500",
-  blue: "bg-blue-500",
-  indigo: "bg-indigo-500",
-  violet: "bg-violet-500",
+// time. Each color drives:
+//   - the wraparound border on the bookmark card (BORDER_CLASS)
+//   - the corresponding small swatch button shown in the card's
+//     top-left corner for click-cycle (SWATCH_CLASS)
+//
+// 'none' is the unset state: the card uses the default neutral
+// surface border so unmarked bookmarks don't fight for attention,
+// while the swatch shows a dashed-outline empty circle.
+const BORDER_CLASS: Record<BookmarkColor, string> = {
+  none: "border-surface-border",
+  red: "border-red-500",
+  orange: "border-orange-500",
+  yellow: "border-yellow-400",
+  green: "border-green-500",
+  blue: "border-blue-500",
+  indigo: "border-indigo-500",
+  violet: "border-violet-500",
+};
+
+const SWATCH_CLASS: Record<BookmarkColor, string> = {
+  none: "bg-surface border-surface-border border-dashed",
+  red: "bg-red-500 border-red-500",
+  orange: "bg-orange-500 border-orange-500",
+  yellow: "bg-yellow-400 border-yellow-400",
+  green: "bg-green-500 border-green-500",
+  blue: "bg-blue-500 border-blue-500",
+  indigo: "bg-indigo-500 border-indigo-500",
+  violet: "bg-violet-500 border-violet-500",
 };
 
 const ERROR_LABELS: Record<string, string> = {
@@ -137,21 +149,19 @@ export function BookmarkPane() {
               return (
                 <li
                   key={bookmark.sku}
-                  className="relative overflow-hidden rounded-card border border-surface-border bg-surface"
+                  data-testid={`bookmark-card-${bookmark.sku}`}
+                  data-color={color}
+                  // border-[3px] always so colored vs neutral states
+                  // don't shift the card size. The whole bubble shows
+                  // the current color via this wraparound border.
+                  className={`relative overflow-hidden rounded-card border-[3px] bg-surface transition-colors ${BORDER_CLASS[color]}`}
                 >
-                  <button
-                    type="button"
-                    onClick={() => cycleColor(bookmark.sku)}
-                    aria-label={`Cycle color for ${bookmark.sku} (current: ${color})`}
-                    title="Click to color-tag this bookmark"
-                    className={`block h-2.5 w-full transition-all hover:brightness-110 ${COLOR_BAR_CLASS[color]}`}
-                  />
                   <button
                     type="button"
                     onClick={() => handleAdd(bookmark)}
                     disabled={lookup.isPending}
                     aria-label={`Add ${bookmark.sku} to cart`}
-                    className="flex h-full w-full flex-col items-start gap-1 p-3 text-left hover:bg-brand-red/5 focus:outline-none focus:ring-2 focus:ring-brand-red focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex h-full w-full flex-col items-start gap-1 px-3 pb-3 pt-7 text-left hover:bg-brand-red/5 focus:outline-none focus:ring-2 focus:ring-brand-red focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <span className="line-clamp-2 text-sm font-bold leading-tight text-ink">
                       {bookmark.name}
@@ -162,9 +172,17 @@ export function BookmarkPane() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => cycleColor(bookmark.sku)}
+                    aria-label={`Cycle color for ${bookmark.sku} (current: ${color})`}
+                    title="Click to color-tag this bookmark"
+                    data-testid={`bookmark-swatch-${bookmark.sku}`}
+                    className={`absolute left-1.5 top-1.5 h-4 w-4 rounded-full border-2 transition hover:scale-110 ${SWATCH_CLASS[color]}`}
+                  />
+                  <button
+                    type="button"
                     onClick={() => remove(bookmark.sku)}
                     aria-label={`Remove ${bookmark.sku} from bookmarks`}
-                    className="absolute right-1 top-2.5 rounded-badge border border-surface-border bg-surface px-1.5 font-mono text-[10px] text-ink-muted hover:bg-status-danger/10 hover:text-status-danger"
+                    className="absolute right-1 top-1 rounded-badge border border-surface-border bg-surface px-1.5 font-mono text-[10px] text-ink-muted hover:bg-status-danger/10 hover:text-status-danger"
                   >
                     ×
                   </button>
