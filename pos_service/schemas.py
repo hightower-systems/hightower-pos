@@ -88,3 +88,51 @@ class CloseTillResponse(BaseModel):
     variance_cents: int
     pdf_url: str
     closed_at: datetime
+
+
+# --- Admin reporting -----------------------------------------------------
+
+
+class TillSessionSummary(BaseModel):
+    """One row in the till-sessions admin list. closing_*, variance_*,
+    and pdf_url are null for OPEN sessions."""
+
+    session_id: str
+    cashier_id: str
+    terminal_id: str
+    status: str  # OPEN | CLOSED
+    opening_float_cents: int
+    cash_sales_cents: int
+    cash_refunds_cents: int
+    expected_closing_cents: int | None = None
+    closing_count_cents: int | None = None
+    variance_cents: int | None = None
+    transaction_count: int
+    cash_transaction_count: int
+    opened_at: datetime
+    closed_at: datetime | None = None
+    pdf_url: str | None = None
+
+
+class TillSessionListResponse(BaseModel):
+    sessions: list[TillSessionSummary]
+
+
+class TillSessionTransactionRow(BaseModel):
+    """Compact transaction view for the per-session 'show me every
+    txn during this shift' admin endpoint. Lighter than the full
+    POSTransaction row -- just enough for variance investigation."""
+
+    id: str
+    txn_type: str
+    status: str
+    payment_method: str | None = None
+    total_cents: int
+    sentry_so_id: str | None = None
+    cashier_id: str
+    created_at: datetime
+
+
+class TillSessionTransactionsResponse(BaseModel):
+    session_id: str
+    transactions: list[TillSessionTransactionRow]

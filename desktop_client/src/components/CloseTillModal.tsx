@@ -34,9 +34,34 @@ interface Props {
  * tab and signs the cashier out). Variance amount is recorded but
  * does NOT block the close per the doc guardrail.
  */
+// Variance bands (matches the doc):
+//   |variance| == 0           -> green   BALANCED
+//   |variance| <= $5 (500c)   -> yellow  SHORT/OVER
+//   |variance| >  $5          -> red     SHORT/OVER
+// Used for both the variance label color and the heuristic about
+// whether to put up the >$10 confirmation modal before submitting.
+const SMALL_VARIANCE_CENTS = 500; // ±$5
+const LARGE_VARIANCE_CENTS = 1000; // ±$10
+
+function varianceTone(cents: number): "balanced" | "small" | "large" {
+  const abs = Math.abs(cents);
+  if (abs === 0) return "balanced";
+  if (abs <= SMALL_VARIANCE_CENTS) return "small";
+  return "large";
+}
+
+const VARIANCE_CLASS: Record<ReturnType<typeof varianceTone>, string> = {
+  balanced: "text-status-success",
+  small: "text-status-warning",
+  large: "text-status-danger",
+};
+
 export function CloseTillModal({ open, onClose, onDoneAfterClose }: Props) {
   const [counts, setCounts] = useState<DenominationCounts>({});
   const [error, setError] = useState<string | null>(null);
+  // >$10 variance pops a confirm modal before submitting. The
+  // boolean tracks whether THAT confirmation is currently up.
+  const [confirmLarge, setConfirmLarge] = useState(false);
   // After a successful close, switch to a success screen so the
   // cashier can open the PDF on their own click (popup-blocker safe)
   // and explicitly sign out when they're done. Null = still on the
@@ -66,9 +91,9 @@ export function CloseTillModal({ open, onClose, onDoneAfterClose }: Props) {
     }));
   }
 
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  function submitClose() {
     setError(null);
+    setConfirmLarge(false);
     closeTill.mutate(counts, {
       onSuccess: (response) => {
         setClosed({
@@ -80,6 +105,18 @@ export function CloseTillModal({ open, onClose, onDoneAfterClose }: Props) {
         setError(err instanceof Error ? err.message : "Could not close till.");
       },
     });
+  }
+
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    // Variance beyond ±$10 gets a confirm-before-submit prompt --
+    // friction at the likely-error threshold, doesn't block. Inside
+    // the threshold, fall through to submit immediately.
+    if (Math.abs(variance) > LARGE_VARIANCE_CENTS) {
+      setConfirmLarge(true);
+      return;
+    }
+    submitClose();
   }
 
   if (!open) return null;
@@ -110,7 +147,9 @@ export function CloseTillModal({ open, onClose, onDoneAfterClose }: Props) {
               <span className="font-mono text-sm font-bold uppercase tracking-wider text-ink">
                 Variance
               </span>
-              <span className="font-mono text-lg font-bold text-ink">
+              <span
+                className={`font-mono text-lg font-bold ${VARIANCE_CLASS[varianceTone(closed.variance_cents)]}`}
+              >
                 {varianceLabel(closed.variance_cents)}
               </span>
             </div>
@@ -261,7 +300,8 @@ export function CloseTillModal({ open, onClose, onDoneAfterClose }: Props) {
               </span>
               <span
                 data-testid="close-till-variance"
-                className="font-mono text-lg font-bold text-ink"
+                data-variance-tone={varianceTone(variance)}
+                className={`font-mono text-lg font-bold ${VARIANCE_CLASS[varianceTone(variance)]}`}
               >
                 {varianceLabel(variance)}
               </span>
@@ -295,6 +335,57 @@ export function CloseTillModal({ open, onClose, onDoneAfterClose }: Props) {
           </button>
         </div>
       </form>
+
+      {/* Large-variance confirm. Renders ON TOP of the close form
+          (same dialog overlay z-index) when the cashier hits Close
+          Till with |variance| > $10. Cashier can recount (go back)
+          or accept the variance and submit anyway. The close itself
+          is NOT blocked -- this is friction at a likely-error
+          threshold per the doc's guardrail. */}
+      {confirmLarge && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-label="Confirm Large Variance"
+          data-testid="close-till-confirm-large"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/70 p-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setConfirmLarge(false);
+          }}
+        >
+          <div className="w-full max-w-sm rounded-card border border-status-warning/40 bg-surface p-6 shadow-2xl">
+            <h3 className="font-mono text-base font-bold uppercase tracking-wider text-status-warning">
+              Large variance
+            </h3>
+            <p className="mt-2 text-sm text-ink">
+              Your variance is{" "}
+              <span
+                className={`font-mono font-bold ${VARIANCE_CLASS[varianceTone(variance)]}`}
+              >
+                {varianceLabel(variance)}
+              </span>
+              . Is this correct? You can recount before closing.
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmLarge(false)}
+                className="rounded-card border border-surface-border bg-surface px-4 py-2 font-mono text-sm font-bold uppercase tracking-wider text-ink hover:bg-surface-card"
+              >
+                Recount
+              </button>
+              <button
+                type="button"
+                onClick={submitClose}
+                disabled={closeTill.isPending}
+                className="rounded-card bg-brand-red px-4 py-2 font-mono text-sm font-bold uppercase tracking-wider text-brand-cream hover:brightness-110 disabled:opacity-60"
+              >
+                Yes, close with this variance
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ PDF endpoint behavior in Phase 1 is the 503 placeholder; Phase 2
 tests will assert real file content.
 """
 import json
+from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -461,21 +462,163 @@ def test_pdf_endpoint_404_for_unknown_session(
     assert r.json()["detail"]["error"] == "session_not_found"
 
 
-def test_pdf_endpoint_404_for_other_cashiers_session(
-    client: TestClient, cashier: POSUser, admin: POSUser, db: Session
+def test_pdf_endpoint_allows_any_authenticated_user_to_view_a_closed_session(
+    client: TestClient, cashier: POSUser, admin: POSUser, db: Session, settings,
 ) -> None:
-    # Set up: admin opens a till; mike (logged in) should not see it.
-    db.add(TillSession(
+    """v1 has no role distinction: anyone signed in can pull any
+    closed session's PDF for reporting/audit. The endpoint
+    regenerates on-the-fly if the file is missing, so this test
+    drives the regen branch too."""
+    from pos_service.services import till_pdf
+    # admin's session, but mike (logged in) is the requester.
+    session = TillSession(
         id="other-cashier-session", cashier_id=admin.username,
         terminal_id="REG-1", status="CLOSED",
         opening_float_cents=0, opening_denominations_json="{}",
         closing_count_cents=0, closing_denominations_json="{}",
         expected_closing_cents=0, variance_cents=0,
+        closed_at=datetime(2026, 5, 11, 10, 0),
+    )
+    db.add(session)
+    db.commit()
+    # Render the PDF up front so the endpoint streams from disk
+    # (regen path is exercised by the existing 'file missing' test).
+    path = till_pdf.render_close_report(session, admin, settings=settings)
+    session.pdf_path = str(path)
+    db.commit()
+
+    _login(client)
+    r = client.get("/api/till/sessions/other-cashier-session/pdf")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+
+
+# ---------------------------------------------------------------------------
+# Admin reporting: GET /sessions, GET /sessions/{id}/transactions
+# ---------------------------------------------------------------------------
+
+def test_list_sessions_defaults_to_closed_and_returns_summary(
+    client: TestClient, cashier: POSUser, settings,
+) -> None:
+    _login(client)
+    # Open + close two sessions so the listing has rows.
+    for _ in range(2):
+        client.post(
+            "/api/till/open",
+            json={"opening_denominations": {"hundred": 1}},
+        )
+        client.post(
+            "/api/till/close",
+            json={"closing_denominations": {"hundred": 1}},
+        )
+
+    r = client.get("/api/till/sessions")
+    assert r.status_code == 200
+    sessions = r.json()["sessions"]
+    assert len(sessions) == 2
+    assert all(s["status"] == "CLOSED" for s in sessions)
+    # Newest first.
+    assert sessions[0]["opened_at"] >= sessions[1]["opened_at"]
+    # Summary carries pdf_url for CLOSED rows.
+    assert sessions[0]["pdf_url"].endswith("/pdf")
+
+
+def test_list_sessions_filters_by_cashier_and_status(
+    client: TestClient, cashier: POSUser, admin: POSUser, db: Session,
+) -> None:
+    """status= filter and cashier_id= filter both narrow the result."""
+    # Seed one OPEN admin session + one CLOSED mike session directly.
+    db.add(TillSession(
+        id="admin-open", cashier_id=admin.username, terminal_id="R2",
+        status="OPEN", opening_float_cents=5000,
+        opening_denominations_json='{"fifty": 1}',
+        opened_at=datetime(2026, 5, 10, 8, 0),
+    ))
+    db.add(TillSession(
+        id="mike-closed", cashier_id=cashier.username, terminal_id="R1",
+        status="CLOSED", opening_float_cents=10000,
+        opening_denominations_json='{"hundred": 1}',
+        closing_count_cents=10000, closing_denominations_json='{"hundred": 1}',
+        expected_closing_cents=10000, variance_cents=0,
+        opened_at=datetime(2026, 5, 10, 9, 0),
+        closed_at=datetime(2026, 5, 10, 17, 0),
     ))
     db.commit()
     _login(client)
-    r = client.get("/api/till/sessions/other-cashier-session/pdf")
-    # 404 (not 403) so the token can't learn that the session exists.
+
+    # status=OPEN narrows to the admin row.
+    r = client.get("/api/till/sessions?status=OPEN")
+    assert [s["session_id"] for s in r.json()["sessions"]] == ["admin-open"]
+
+    # cashier_id filter narrows to one cashier; default status=CLOSED.
+    r = client.get(f"/api/till/sessions?cashier_id={cashier.username}")
+    assert [s["session_id"] for s in r.json()["sessions"]] == ["mike-closed"]
+
+
+def test_list_sessions_paginates_via_limit_offset(
+    client: TestClient, cashier: POSUser,
+) -> None:
+    _login(client)
+    for _ in range(3):
+        client.post(
+            "/api/till/open",
+            json={"opening_denominations": {"hundred": 1}},
+        )
+        client.post(
+            "/api/till/close",
+            json={"closing_denominations": {"hundred": 1}},
+        )
+
+    page_one = client.get("/api/till/sessions?limit=2&offset=0").json()["sessions"]
+    page_two = client.get("/api/till/sessions?limit=2&offset=2").json()["sessions"]
+    assert len(page_one) == 2
+    assert len(page_two) == 1
+    # No overlap between pages.
+    ids_one = {s["session_id"] for s in page_one}
+    ids_two = {s["session_id"] for s in page_two}
+    assert ids_one.isdisjoint(ids_two)
+
+
+def test_session_transactions_returns_stamped_rows(
+    client: TestClient, cashier: POSUser, db: Session,
+) -> None:
+    _login(client)
+    opened = client.post(
+        "/api/till/open",
+        json={"opening_denominations": {"hundred": 1}},
+    ).json()
+    session_id = opened["session_id"]
+    # Stamp three transactions: one card sale, one cash sale, one
+    # cash refund. attribute_transaction normally fires from the
+    # checkout/refund services; we hit it directly so the test
+    # doesn't need to drive the full Sentry roundtrip.
+    sale_card = _make_txn(db, cashier.username, payment_method="card", total_cents=2500)
+    sale_cash = _make_txn(db, cashier.username, payment_method="cash", total_cents=900)
+    refund = _make_txn(
+        db, cashier.username, payment_method="cash",
+        total_cents=300, txn_type="refund",
+    )
+    till_service.attribute_transaction(db, sale_card)
+    till_service.attribute_transaction(db, sale_cash)
+    till_service.attribute_transaction(db, refund, is_refund=True)
+    db.commit()
+
+    r = client.get(f"/api/till/sessions/{session_id}/transactions")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["session_id"] == session_id
+    # Three stamped rows; ordering is by created_at ascending.
+    ids_returned = [t["id"] for t in body["transactions"]]
+    assert set(ids_returned) == {sale_card.id, sale_cash.id, refund.id}
+    methods = {t["payment_method"] for t in body["transactions"]}
+    assert methods == {"card", "cash"}
+
+
+def test_session_transactions_404_for_unknown_session(
+    client: TestClient, cashier: POSUser,
+) -> None:
+    _login(client)
+    r = client.get("/api/till/sessions/does-not-exist/transactions")
     assert r.status_code == 404
 
 
