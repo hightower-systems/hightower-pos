@@ -36,4 +36,12 @@ export const handlers = [
   http.get(`${API}/api/till/current`, () =>
     HttpResponse.json({ status: "NONE" }),
   ),
+  // Admin endpoints default to empty so screens that render them
+  // don't crash when no per-test handler is registered.
+  http.get(`${API}/api/admin/users`, () =>
+    HttpResponse.json({ users: [] }),
+  ),
+  http.get(`${API}/api/till/sessions`, () =>
+    HttpResponse.json({ sessions: [] }),
+  ),
 ];

@@ -13,6 +13,7 @@ interface Props {
     opening_float_cents: number;
     onCloseTill: () => void;
   } | null;
+  onOpenSettings?: () => void;
 }
 
 export function StatusStrip({
@@ -20,6 +21,7 @@ export function StatusStrip({
   onSignOut,
   signOutPending = false,
   till = null,
+  onOpenSettings,
 }: Props) {
   const deps = useDependencies();
   const printAgent = usePrintAgentStatus();
@@ -75,6 +77,16 @@ export function StatusStrip({
               Close Till
             </button>
           </>
+        )}
+        {onOpenSettings && (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            aria-label="Open settings"
+            className="rounded-card border border-slate-700 bg-slate-800 px-3 py-1 font-mono text-xs font-semibold uppercase tracking-wider text-brand-cream hover:bg-slate-700"
+          >
+            Settings
+          </button>
         )}
         <button
           type="button"

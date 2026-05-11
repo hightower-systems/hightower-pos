@@ -136,3 +136,36 @@ class TillSessionTransactionRow(BaseModel):
 class TillSessionTransactionsResponse(BaseModel):
     session_id: str
     transactions: list[TillSessionTransactionRow]
+
+
+# --- User management ----------------------------------------------------
+
+
+class UserSummary(BaseModel):
+    """Admin-view row for a POS cashier. No password material on the
+    wire (not even the hash) -- the only paths that ever touch a
+    password are the create and reset-password handlers, and both
+    take the plaintext as input only."""
+
+    username: str
+    display_name: str
+    is_active: bool
+    must_change_password: bool
+    created_at: datetime
+
+
+class UsersListResponse(BaseModel):
+    users: list[UserSummary]
+
+
+class CreateUserRequest(BaseModel):
+    # Username constraints mirror what the auth model can store +
+    # what feels safe on URL paths and printed receipts. 64 chars is
+    # the SQLAlchemy String() column ceiling.
+    username: str = Field(min_length=1, max_length=64)
+    display_name: str = Field(min_length=1, max_length=128)
+    initial_password: str = Field(min_length=8, max_length=256)
+
+
+class ResetPasswordRequest(BaseModel):
+    new_password: str = Field(min_length=8, max_length=256)

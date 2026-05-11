@@ -112,3 +112,48 @@ export function useCloseTill() {
       }),
   });
 }
+
+
+// --- Admin reporting -----------------------------------------------------
+
+
+export interface TillSessionSummary {
+  session_id: string;
+  cashier_id: string;
+  terminal_id: string;
+  status: "OPEN" | "CLOSED";
+  opening_float_cents: number;
+  cash_sales_cents: number;
+  cash_refunds_cents: number;
+  expected_closing_cents: number | null;
+  closing_count_cents: number | null;
+  variance_cents: number | null;
+  transaction_count: number;
+  cash_transaction_count: number;
+  opened_at: string;
+  closed_at: string | null;
+  pdf_url: string | null;
+}
+
+export interface TillSessionListFilters {
+  cashier_id?: string;
+  status?: "OPEN" | "CLOSED" | "";
+  limit?: number;
+  offset?: number;
+}
+
+export function useTillSessions(filters: TillSessionListFilters = {}) {
+  const params = new URLSearchParams();
+  if (filters.cashier_id) params.set("cashier_id", filters.cashier_id);
+  if (filters.status !== undefined) params.set("status", filters.status);
+  if (filters.limit !== undefined) params.set("limit", String(filters.limit));
+  if (filters.offset !== undefined) params.set("offset", String(filters.offset));
+  const qs = params.toString();
+  return useQuery({
+    queryKey: ["admin", "till-sessions", filters],
+    queryFn: () =>
+      api<{ sessions: TillSessionSummary[] }>(
+        `/api/till/sessions${qs ? `?${qs}` : ""}`,
+      ),
+  });
+}

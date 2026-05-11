@@ -12,6 +12,7 @@ from pos_service.clients.fabric import FabricClient
 from pos_service.config import Settings, get_settings
 from pos_service.db import get_engine, get_session_factory
 from pos_service.routes import admin as admin_routes
+from pos_service.routes import admin_users as admin_users_routes
 from pos_service.routes import auth as auth_routes
 from pos_service.routes import checkout as checkout_routes
 from pos_service.routes import customers as customer_routes
@@ -96,6 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(refunds_routes.router)
     app.include_router(till_routes.router)
     app.include_router(admin_routes.router)
+    app.include_router(admin_users_routes.router)
     app.include_router(customer_routes.router)
     app.include_router(health_routes.router)
 

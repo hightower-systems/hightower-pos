@@ -25,9 +25,13 @@ import { StatusStrip } from "../components/StatusStrip";
 interface Props {
   user: UserInfo;
   onSignedOut: () => void;
+  // Optional so existing tests that don't care about settings can
+  // skip the prop. When omitted, the StatusStrip simply doesn't
+  // render a Settings button.
+  onOpenSettings?: () => void;
 }
 
-export function RegisterScreen({ user, onSignedOut }: Props) {
+export function RegisterScreen({ user, onSignedOut, onOpenSettings }: Props) {
   const logout = useLogout();
   const queryClient = useQueryClient();
   // Authoritative source for till state on the register screen.
@@ -86,6 +90,7 @@ export function RegisterScreen({ user, onSignedOut }: Props) {
         cashier={{ display_name: user.display_name }}
         onSignOut={() => void handleSignOut()}
         signOutPending={logout.isPending}
+        onOpenSettings={onOpenSettings}
         till={
           tillIsOpen && till.data?.status === "OPEN"
             ? {
