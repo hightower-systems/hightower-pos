@@ -45,6 +45,15 @@ def revoke_session(db: Session, token: str) -> None:
         db.commit()
 
 
+def peek_session(db: Session, token: str) -> POSSession | None:
+    """Return the session row for a token without revoking it.
+
+    Used by the logout handler to look up the cashier so it can
+    check for an open till before clearing the cookie -- read-only,
+    so it doesn't need its own commit."""
+    return db.get(POSSession, token)
+
+
 @dataclass
 class AuthContext:
     user: POSUser

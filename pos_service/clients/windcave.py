@@ -370,7 +370,7 @@ def _mock_complete_response(
             WindcaveButton(name="B2", enabled=False),
         ],
         receipt_text=(
-            f"        AvidMax (mock)\n"
+            f"        Hightower (mock)\n"
             f"AUTHORISATION 000000\n"
             f"AMOUNT  ${amount_cents / 100:.2f}\n"
             f"APPROVED\n"

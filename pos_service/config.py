@@ -17,12 +17,12 @@ class Settings(BaseSettings):
     sentry_initial_backoff_s: float = 0.5
 
     windcave_base_url: str = "https://sec.windcave.com/pxmi3/pos.aspx"
-    windcave_user: str = "AvidMax"
+    windcave_user: str = "Hightower"
     windcave_key: str = "replace-me"
     windcave_station: str = "replace-with-terminal-serial"
     windcave_vendor_id: str = "Hightower"
-    windcave_pos_name: str = "AvidMaxPOS"
-    windcave_device_id: str = "AvidMax-Reg1"
+    windcave_pos_name: str = "HightowerPOS"
+    windcave_device_id: str = "Hightower-Reg1"
     windcave_pos_version: str = "1.0.0"
     windcave_currency: str = "USD"
     windcave_timezone: str = "US MST"
@@ -46,13 +46,20 @@ class Settings(BaseSettings):
     fabric_price_catalog_path: str = "/api/v1/prices/catalog"
     fabric_sales_orders_path: str = "/api/v1/sales_orders"
     fabric_customer_lookup_path: str = "/api/v1/customers/lookup"
+    fabric_customer_create_path: str = "/api/v1/customers"
     fabric_auth_header_name: str = "Authorization"
     fabric_auth_header_value_prefix: str = "Bearer "
 
-    store_name: str = "AvidMax"
+    store_name: str = "Hightower"
     store_address_line_1: str = ""
     store_address_line_2: str = ""
     store_phone: str = ""
+
+    # Root directory for generated till-close PDFs. Production deploys
+    # mount this at /data/till_pdfs so the files survive container
+    # restarts on the same Docker volume that holds pos.db. Dev/test
+    # overrides to a workspace-local dir via .env.
+    till_pdf_root: str = "/data/till_pdfs"
 
     session_secret_key: str = "replace-with-random-32-bytes-base64"
     session_ttl_hours: int = 12

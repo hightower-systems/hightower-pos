@@ -29,3 +29,25 @@ export function useCustomerLookup() {
     },
   });
 }
+
+export interface CreateCustomerResponse {
+  customer_id: string;
+  display_name: string | null;
+  email: string | null;
+  phone: string | null;
+  registered: boolean;
+}
+
+export function useCreateCustomer() {
+  return useMutation<CreateCustomerResponse, Error, CustomerLookupArgs>({
+    mutationFn: ({ name, email, phone }) =>
+      api<CreateCustomerResponse>("/api/customers", {
+        method: "POST",
+        body: JSON.stringify({
+          name: name ?? null,
+          email: email ?? null,
+          phone: phone ?? null,
+        }),
+      }),
+  });
+}

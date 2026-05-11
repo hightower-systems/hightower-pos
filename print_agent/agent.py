@@ -130,7 +130,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         printer: StarTSP100 = Depends(get_printer),
     ) -> PrintResponse:
         body = (
-            "AvidMax Print Agent\n"
+            "Hightower Print Agent\n"
             f"Version: {__version__}\n"
             f"{datetime.now(UTC).replace(tzinfo=None):%Y-%m-%d %H:%M:%S}\n"
             "If you can read this, the\nprinter is wired correctly.\n"
@@ -160,7 +160,7 @@ def _bootstrap_printer(settings: Settings) -> None:
     if settings.print_test_on_startup:
         try:
             star.print_text(
-                f"AvidMax Print Agent v{__version__} online.\n", cut=True
+                f"Hightower Print Agent v{__version__} online.\n", cut=True
             )
         except Exception:
             log.warning("startup test print failed")

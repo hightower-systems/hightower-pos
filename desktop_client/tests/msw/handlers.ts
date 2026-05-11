@@ -30,4 +30,18 @@ export const handlers = [
   http.get(`${API}/api/auth/me`, () =>
     HttpResponse.json({ detail: { error: "not_authenticated" } }, { status: 401 }),
   ),
+  // /api/till/current is polled by the RegisterScreen on mount. Default
+  // to no open session so tests that don't care about till state
+  // don't have to register their own handler.
+  http.get(`${API}/api/till/current`, () =>
+    HttpResponse.json({ status: "NONE" }),
+  ),
+  // Admin endpoints default to empty so screens that render them
+  // don't crash when no per-test handler is registered.
+  http.get(`${API}/api/admin/users`, () =>
+    HttpResponse.json({ users: [] }),
+  ),
+  http.get(`${API}/api/till/sessions`, () =>
+    HttpResponse.json({ sessions: [] }),
+  ),
 ];

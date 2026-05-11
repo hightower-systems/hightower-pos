@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pos-service"
-version = "0.1.0"
-description = "AvidMax in-store retail POS backend service"
+version = "1.0.0"
+description = "Hightower in-store retail POS backend service"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
@@ -23,6 +23,7 @@ dependencies = [
   "structlog>=24.1",
   "python-multipart>=0.0.9",
   "typer>=0.12",
+  "reportlab>=4.0",
 ]
 
 [project.optional-dependencies]

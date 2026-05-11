@@ -1,5 +1,5 @@
 @echo off
-REM AvidMax POS print agent - manual launcher.
+REM Hightower POS print agent - manual launcher.
 REM
 REM Drop this folder onto the cashier's Windows desktop, double-click this
 REM .bat to start the agent. Closing the black window stops the agent.
@@ -33,7 +33,7 @@ if not exist .env (
     )
 )
 
-echo [run] Starting AvidMax print agent on http://127.0.0.1:9100
+echo [run] Starting Hightower print agent on http://127.0.0.1:9100
 .venv\Scripts\python -m print_agent.agent
 echo [run] Agent stopped.
 pause

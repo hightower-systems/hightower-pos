@@ -192,6 +192,29 @@ describe("<Cart>", () => {
 
     expect(useBookmarks.getState().items).toHaveLength(0);
   });
+
+  it("a color swatch is hidden until the cart line is bookmarked, then cycles colors on click", async () => {
+    useCart.getState().addItem(ROD);
+    renderWithQuery(<Cart />);
+
+    // Before bookmarking: no swatch.
+    expect(screen.queryByTestId("cart-line-color-swatch-ROD-100")).toBeNull();
+
+    const u = userEvent.setup();
+    await u.click(
+      screen.getByRole("button", { name: /^bookmark rod-100$/i }),
+    );
+    const swatch = screen.getByTestId("cart-line-color-swatch-ROD-100");
+    // New bookmark starts at the 'none' color until clicked.
+    expect(swatch).toHaveAccessibleName(/current: none/i);
+
+    await u.click(swatch);
+    expect(useBookmarks.getState().items[0].color).toBe("red");
+    expect(swatch).toHaveAccessibleName(/current: red/i);
+
+    await u.click(swatch);
+    expect(useBookmarks.getState().items[0].color).toBe("orange");
+  });
 });
 
 describe("<CartTotals>", () => {

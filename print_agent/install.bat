@@ -1,5 +1,5 @@
 @echo off
-REM AvidMax POS print agent - one-time installer for autostart on Windows.
+REM Hightower POS print agent - one-time installer for autostart on Windows.
 REM
 REM Wires the agent into Windows Task Scheduler so it launches on every
 REM logon. Run this once per cashier desktop. Re-running re-creates the
@@ -8,7 +8,7 @@ REM task with the latest paths.
 setlocal
 cd /d "%~dp0"
 
-echo === AvidMax Print Agent Installer ===
+echo === Hightower Print Agent Installer ===
 echo.
 
 echo [1/4] Checking Python...
@@ -50,7 +50,7 @@ if not exist .env (
 
 echo.
 echo [3/4] Registering Windows Task Scheduler entry...
-set "TASK_NAME=AvidMax POS Print Agent"
+set "TASK_NAME=Hightower POS Print Agent"
 set "AGENT_CMD=\"%CD%\.venv\Scripts\pythonw.exe\" -m print_agent.agent"
 
 schtasks /Query /TN "%TASK_NAME%" >nul 2>&1
@@ -71,7 +71,7 @@ echo  The agent will start automatically on next user logon.
 
 echo.
 echo [4/4] Printing a test receipt to verify the printer wiring...
-.venv\Scripts\python -c "from print_agent.escpos_client import StarTSP100; from print_agent.config import get_settings; s = get_settings(); p = StarTSP100.open_usb(vendor_id=s.printer_vendor_id, product_id=s.printer_product_id, profile=s.printer_profile); p.print_text('AvidMax Print Agent installed.\nIf you see this, the printer\nis wired correctly.\n', cut=True); p.close()"
+.venv\Scripts\python -c "from print_agent.escpos_client import StarTSP100; from print_agent.config import get_settings; s = get_settings(); p = StarTSP100.open_usb(vendor_id=s.printer_vendor_id, product_id=s.printer_product_id, profile=s.printer_profile); p.print_text('Hightower Print Agent installed.\nIf you see this, the printer\nis wired correctly.\n', cut=True); p.close()"
 if errorlevel 1 (
     echo  Test print failed. The Task Scheduler entry was still created;
     echo  fix the printer wiring then run start_print_agent.bat to retry.

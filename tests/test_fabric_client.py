@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 import respx
@@ -240,6 +242,80 @@ async def test_lookup_customer_returns_none_on_null_body():
     client = FabricClient(base_url=base)
     try:
         assert await client.lookup_customer(name="anyone") is None
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_create_customer_posts_and_returns_dict():
+    base = "https://fabric.test"
+    route = respx.post(f"{base}/api/v1/customers").mock(
+        return_value=httpx.Response(
+            201,
+            json={
+                "customer_id": "cust-99",
+                "display_name": "Pat New",
+                "email": "pat@example.com",
+                "phone": "555-1234",
+                "registered": True,
+            },
+        )
+    )
+    client = FabricClient(base_url=base)
+    try:
+        created = await client.create_customer(
+            name="Pat New", email="pat@example.com", phone="555-1234",
+        )
+    finally:
+        await client.aclose()
+    assert created["customer_id"] == "cust-99"
+    assert created["registered"] is True
+    # Body posted contained the three fields we passed.
+    body = json.loads(route.calls.last.request.content.decode())
+    assert body == {
+        "name": "Pat New",
+        "email": "pat@example.com",
+        "phone": "555-1234",
+    }
+
+
+@pytest.mark.asyncio
+async def test_create_customer_mock_mode_returns_synthetic_id():
+    """No base URL -> mock mode. Synthetic customer_id stamps the same
+    shape Fabric would return so the downstream attach/checkout code
+    path doesn't branch on mock vs real."""
+    client = FabricClient(base_url="")
+    try:
+        created = await client.create_customer(name="Mock Pat")
+    finally:
+        await client.aclose()
+    assert created["customer_id"].startswith("mock-")
+    assert created["display_name"] == "Mock Pat"
+    assert created["registered"] is True
+
+
+@pytest.mark.asyncio
+async def test_create_customer_requires_at_least_one_field():
+    client = FabricClient(base_url="https://fabric.test")
+    try:
+        with pytest.raises(FabricClientError):
+            await client.create_customer()
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_create_customer_wraps_5xx_as_fabric_client_error():
+    base = "https://fabric.test"
+    respx.post(f"{base}/api/v1/customers").mock(
+        return_value=httpx.Response(503, json={})
+    )
+    client = FabricClient(base_url=base)
+    try:
+        with pytest.raises(FabricClientError):
+            await client.create_customer(name="Pat")
     finally:
         await client.aclose()
 

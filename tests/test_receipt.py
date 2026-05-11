@@ -22,7 +22,7 @@ def _settings() -> Settings:
         windcave_key="x",
         windcave_station="x",
         tax_rate=0.0810,
-        store_name="AvidMax",
+        store_name="Hightower",
         store_address_line_1="1234 Main St",
         store_address_line_2="Centennial CO",
         store_phone="(303) 555-1234",
@@ -136,7 +136,7 @@ def test_format_cash_sale_receipt() -> None:
     for line in lines:
         assert len(line) <= RECEIPT_WIDTH, f"line too wide: {line!r}"
 
-    assert "AvidMax" in out
+    assert "Hightower" in out
     assert "1234 Main St" in out
     assert "Centennial CO" in out
     assert "(303) 555-1234" in out
@@ -282,7 +282,7 @@ def test_format_receipt_handles_empty_store_info() -> None:
         windcave_key="x",
         windcave_station="x",
         tax_rate=0.0810,
-        store_name="AvidMax",
+        store_name="Hightower",
         store_address_line_1="",
         store_address_line_2="",
         store_phone="",
@@ -292,7 +292,7 @@ def test_format_receipt_handles_empty_store_info() -> None:
     )
     txn = _cash_sale_row()
     out = format_receipt(txn, settings=settings)
-    assert "AvidMax" in out
+    assert "Hightower" in out
 
 
 # --- Endpoint integration ---

@@ -2,6 +2,7 @@ import { type FormEvent, useState } from "react";
 
 import {
   type CustomerLookupResponse,
+  useCreateCustomer,
   useCustomerLookup,
 } from "../api/customers";
 import { useCustomer } from "../store/customer";
@@ -20,7 +21,9 @@ export function AttachCustomerModal() {
   const setAttached = useCustomer((s) => s.setAttached);
   const closeLookup = useCustomer((s) => s.closeLookup);
   const lookup = useCustomerLookup();
+  const create = useCreateCustomer();
   const [form, setForm] = useState<FormState>(EMPTY);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const isOpen = phase === "lookup";
   const hasAnyField = !!(form.name.trim() || form.email.trim() || form.phone.trim());
@@ -33,7 +36,9 @@ export function AttachCustomerModal() {
 
   function reset() {
     setForm(EMPTY);
+    setCreateError(null);
     lookup.reset();
+    create.reset();
   }
 
   function handleClose() {
@@ -51,7 +56,7 @@ export function AttachCustomerModal() {
     });
   }
 
-  function handleAttachMatch() {
+  function handleAttachExisting() {
     if (!match) return;
     setAttached({
       customer_id: match.customer_id,
@@ -61,6 +66,34 @@ export function AttachCustomerModal() {
       registered: match.registered,
     });
     reset();
+  }
+
+  function handleCreateCustomer() {
+    setCreateError(null);
+    create.mutate(
+      {
+        name: form.name.trim() || undefined,
+        email: form.email.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+      },
+      {
+        onSuccess: (created) => {
+          setAttached({
+            customer_id: created.customer_id,
+            name: created.display_name,
+            email: created.email,
+            phone: created.phone,
+            registered: created.registered,
+          });
+          reset();
+        },
+        onError: (err) => {
+          setCreateError(
+            err instanceof Error ? err.message : "Could not create customer.",
+          );
+        },
+      },
+    );
   }
 
   function handleAttachAsTyped() {
@@ -133,8 +166,18 @@ export function AttachCustomerModal() {
             data-testid="customer-no-match"
             className="rounded-card border border-brand-copper/40 bg-brand-copper/10 p-3 font-mono text-xs uppercase tracking-wider text-brand-copper"
           >
-            No match. Will log as a new unregistered customer.
+            No match. Create a new customer or attach the typed info
+            to this sale without registering them.
           </div>
+        )}
+
+        {createError && (
+          <p
+            role="alert"
+            className="rounded-card border border-status-danger/30 bg-status-danger/10 px-3 py-2 font-mono text-xs uppercase tracking-wider text-status-danger"
+          >
+            {createError}
+          </p>
         )}
 
         <div className="mt-2 flex flex-wrap gap-2">
@@ -157,21 +200,32 @@ export function AttachCustomerModal() {
           {lookupDone && match && (
             <button
               type="button"
-              onClick={handleAttachMatch}
+              onClick={handleAttachExisting}
               className="flex-1 rounded-card bg-brand-red px-4 py-2 font-mono text-sm font-bold uppercase tracking-wider text-brand-cream hover:brightness-110"
             >
-              Attach
+              Attach Existing Customer
             </button>
           )}
           {lookupDone && !match && (
-            <button
-              type="button"
-              onClick={handleAttachAsTyped}
-              disabled={!hasAnyField}
-              className="flex-1 rounded-card bg-brand-red px-4 py-2 font-mono text-sm font-bold uppercase tracking-wider text-brand-cream hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Attach as new
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleAttachAsTyped}
+                disabled={!hasAnyField}
+                className="flex-1 rounded-card border border-surface-border bg-surface px-4 py-2 font-mono text-xs font-semibold uppercase tracking-wider text-ink hover:bg-surface-card disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Attach As Typed
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateCustomer}
+                disabled={!hasAnyField || create.isPending}
+                data-testid="customer-create-button"
+                className="flex-1 rounded-card bg-brand-red px-4 py-2 font-mono text-sm font-bold uppercase tracking-wider text-brand-cream hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {create.isPending ? "Creating..." : "Create Customer"}
+              </button>
+            </>
           )}
         </div>
       </form>

@@ -16,12 +16,12 @@ WINDCAVE_URL = "https://demo.windcave.com/SandboxPxHIT.aspx"
 def _client(*, mock: bool = False) -> WindcaveClient:
     return WindcaveClient(
         base_url=WINDCAVE_URL,
-        user="AvidMax",
+        user="Hightower",
         key="test-key",
         station="TEST-STATION",
         vendor_id="Hightower",
-        pos_name="AvidMaxPOS",
-        device_id="AvidMax-Reg1",
+        pos_name="HightowerPOS",
+        device_id="Hightower-Reg1",
         pos_version="1.0.0",
         currency="USD",
         mock=mock,
@@ -149,15 +149,15 @@ async def test_charge_sends_purchase_xml() -> None:
     root = _request_root(route)
     assert root.tag == "Scr"
     assert root.get("action") == "doScrHIT"
-    assert root.get("user") == "AvidMax"
+    assert root.get("user") == "Hightower"
     assert root.get("key") == "test-key"
     assert root.findtext("Amount") == "49.90"
     assert root.findtext("Cur") == "USD"
     assert root.findtext("TxnType") == "Purchase"
     assert root.findtext("Station") == "TEST-STATION"
     assert root.findtext("TxnRef") == "abc-123"
-    assert root.findtext("DeviceId") == "AvidMax-Reg1"
-    assert root.findtext("PosName") == "AvidMaxPOS"
+    assert root.findtext("DeviceId") == "Hightower-Reg1"
+    assert root.findtext("PosName") == "HightowerPOS"
     assert root.findtext("PosVersion") == "1.0.0"
     assert root.findtext("VendorId") == "Hightower"
     assert root.findtext("MRef") == "cart#1"
