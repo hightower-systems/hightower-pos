@@ -42,6 +42,26 @@ class FakeFabric:
             raise FabricClientError(self.raise_error)
         return self.match
 
+    async def create_customer(
+        self,
+        *,
+        name: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+    ) -> dict[str, Any]:
+        self.calls.append(
+            {"op": "create", "name": name, "email": email, "phone": phone}
+        )
+        if self.raise_error is not None:
+            raise FabricClientError(self.raise_error)
+        return {
+            "customer_id": "cust-new",
+            "display_name": name,
+            "email": email,
+            "phone": phone,
+            "registered": True,
+        }
+
 
 @pytest.fixture
 def fake_fabric() -> FakeFabric:
@@ -155,3 +175,72 @@ async def test_fabric_client_lookup_customer_requires_at_least_one_param():
             await client.lookup_customer()
     finally:
         await client.aclose()
+
+
+# ---------------------------------------------------------------------------
+# POST /api/customers  (create new customer in Fabric)
+# ---------------------------------------------------------------------------
+
+
+def test_create_requires_auth(client: TestClient) -> None:
+    r = client.post("/api/customers", json={"name": "Pat"})
+    assert r.status_code == 401
+
+
+def test_create_rejects_empty_body(
+    client_with_fabric: TestClient, cashier: POSUser
+) -> None:
+    _login(client_with_fabric)
+    r = client_with_fabric.post("/api/customers", json={})
+    assert r.status_code == 400
+    assert r.json()["detail"]["error"] == "at_least_one_field_required"
+
+
+def test_create_returns_201_with_customer_id_from_fabric(
+    client: TestClient, cashier: POSUser, fake_fabric: FakeFabric
+) -> None:
+    client.app.dependency_overrides[get_fabric_client] = lambda: fake_fabric
+    _login(client)
+    r = client.post(
+        "/api/customers",
+        json={"name": "Pat New", "email": "pat@example.com", "phone": "5551234"},
+    )
+    assert r.status_code == 201
+    body = r.json()
+    assert body["customer_id"] == "cust-new"
+    assert body["display_name"] == "Pat New"
+    assert body["registered"] is True
+    # Fabric saw the create call with the trimmed fields.
+    create_calls = [c for c in fake_fabric.calls if c.get("op") == "create"]
+    assert create_calls == [
+        {
+            "op": "create",
+            "name": "Pat New",
+            "email": "pat@example.com",
+            "phone": "5551234",
+        }
+    ]
+
+
+def test_create_trims_whitespace_and_treats_blank_as_missing(
+    client: TestClient, cashier: POSUser, fake_fabric: FakeFabric
+) -> None:
+    """' \t' for every field still fails the at-least-one check."""
+    client.app.dependency_overrides[get_fabric_client] = lambda: fake_fabric
+    _login(client)
+    r = client.post(
+        "/api/customers",
+        json={"name": "  ", "email": "", "phone": None},
+    )
+    assert r.status_code == 400
+
+
+def test_create_returns_503_when_fabric_unavailable(
+    client: TestClient, cashier: POSUser
+) -> None:
+    fake = FakeFabric(raise_error="connection refused")
+    client.app.dependency_overrides[get_fabric_client] = lambda: fake
+    _login(client)
+    r = client.post("/api/customers", json={"name": "Pat"})
+    assert r.status_code == 503
+    assert r.json()["detail"]["error"] == "fabric_unavailable"

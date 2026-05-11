@@ -35,12 +35,12 @@ export function CartLine({ line }: Props) {
       <div className="min-w-0">
         <div className="truncate text-lg font-bold leading-tight text-ink">{line.name}</div>
         <div className="font-mono text-xs font-semibold text-ink-muted">{line.sku}</div>
-        <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-wider">
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wider">
           <button
             type="button"
             onClick={() => setPicker("warehouse")}
             aria-label={`Change warehouse for ${line.sku}`}
-            className={`rounded-badge border px-2 py-0.5 ${whColor.bg} ${whColor.border} ${whColor.text} hover:brightness-95`}
+            className={`rounded-badge border px-2.5 py-1 ${whColor.bg} ${whColor.border} ${whColor.text} hover:brightness-95`}
           >
             WH {line.warehouse_name || "-"}
           </button>
@@ -48,7 +48,7 @@ export function CartLine({ line }: Props) {
             type="button"
             onClick={() => setPicker("bin")}
             aria-label={`Change bin for ${line.sku}`}
-            className="rounded-badge border border-brand-copper/40 bg-brand-copper/15 px-2 py-0.5 text-brand-copper hover:brightness-95"
+            className="rounded-badge border border-brand-copper/40 bg-brand-copper/15 px-2.5 py-1 text-brand-copper hover:brightness-95"
           >
             BIN {line.bin_name || "-"}
           </button>
@@ -57,7 +57,7 @@ export function CartLine({ line }: Props) {
               type="button"
               onClick={() => setPicker("split")}
               aria-label={`Split ${line.sku}`}
-              className="rounded-badge border border-surface-border bg-surface px-2 py-0.5 text-ink-muted hover:bg-surface-card"
+              className="rounded-badge border border-surface-border bg-surface px-2.5 py-1 text-ink-muted hover:bg-surface-card"
             >
               Split
             </button>
@@ -77,7 +77,7 @@ export function CartLine({ line }: Props) {
                 ? `Remove ${line.sku} from bookmarks`
                 : `Bookmark ${line.sku}`
             }
-            className={`rounded-badge border px-2 py-0.5 ${isBookmarked ? "border-brand-red bg-brand-red/10 text-brand-red" : "border-surface-border bg-surface text-ink-muted hover:bg-surface-card"}`}
+            className={`rounded-badge border px-2.5 py-1 ${isBookmarked ? "border-brand-red bg-brand-red/10 text-brand-red" : "border-surface-border bg-surface text-ink-muted hover:bg-surface-card"}`}
           >
             {isBookmarked ? "Saved" : "Save"}
           </button>
@@ -85,7 +85,7 @@ export function CartLine({ line }: Props) {
             <span
               role="status"
               data-testid="oversold-warning"
-              className="rounded-badge border border-status-warning/50 bg-status-warning/15 px-2 py-0.5 text-status-warning"
+              className="rounded-badge border border-status-warning/50 bg-status-warning/15 px-2.5 py-1 text-status-warning"
             >
               {binQty === 0
                 ? "Out of stock here"

@@ -23,18 +23,18 @@ export function SettingsScreen({ user, onBack }: Props) {
   const [tab, setTab] = useState<Tab>("users");
   return (
     <div className="flex min-h-screen flex-col bg-surface">
-      <header className="flex items-center gap-4 bg-slate-900 px-6 py-3 text-sm">
+      <header className="flex items-center gap-4 bg-brand-red px-6 py-3 text-sm text-brand-cream">
         <button
           type="button"
           onClick={onBack}
-          className="rounded-card border border-slate-700 bg-slate-800 px-3 py-1 font-mono text-xs font-semibold uppercase tracking-wider text-brand-cream hover:bg-slate-700"
+          className="rounded-card border border-brand-cream/40 bg-brand-cream/10 px-3 py-1 font-mono text-xs font-semibold uppercase tracking-wider text-brand-cream hover:bg-brand-cream/20"
         >
           ← Back
         </button>
         <span className="font-mono text-base font-bold uppercase tracking-wider text-brand-cream">
           Settings
         </span>
-        <span className="ml-auto text-slate-300">{user.display_name}</span>
+        <span className="ml-auto text-brand-cream/90">{user.display_name}</span>
       </header>
       <nav className="flex items-end gap-1 border-b border-surface-border bg-surface px-6">
         <TabButton active={tab === "users"} onClick={() => setTab("users")}>

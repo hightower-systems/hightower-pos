@@ -34,6 +34,7 @@ startup or churn the price cache.
 """
 
 import logging
+import uuid
 from typing import Any
 
 import httpx
@@ -50,6 +51,7 @@ log = logging.getLogger(__name__)
 PRICE_CATALOG_PATH = "/api/v1/prices/catalog"
 SALES_ORDERS_PATH = "/api/v1/sales_orders"
 CUSTOMER_LOOKUP_PATH = "/api/v1/customers/lookup"
+CUSTOMER_CREATE_PATH = "/api/v1/customers"
 DEFAULT_AUTH_HEADER_NAME = "Authorization"
 DEFAULT_AUTH_HEADER_VALUE_PREFIX = "Bearer "
 
@@ -68,6 +70,7 @@ class FabricClient:
         price_catalog_path: str = PRICE_CATALOG_PATH,
         sales_orders_path: str = SALES_ORDERS_PATH,
         customer_lookup_path: str = CUSTOMER_LOOKUP_PATH,
+        customer_create_path: str = CUSTOMER_CREATE_PATH,
         auth_header_name: str = DEFAULT_AUTH_HEADER_NAME,
         auth_header_value_prefix: str = DEFAULT_AUTH_HEADER_VALUE_PREFIX,
     ) -> None:
@@ -77,6 +80,7 @@ class FabricClient:
         self._price_catalog_path = price_catalog_path
         self._sales_orders_path = sales_orders_path
         self._customer_lookup_path = customer_lookup_path
+        self._customer_create_path = customer_create_path
         self._client: httpx.AsyncClient | None = None
         if base_url:
             headers: dict[str, str] = {"Accept": "application/json"}
@@ -97,6 +101,7 @@ class FabricClient:
             price_catalog_path=settings.fabric_price_catalog_path,
             sales_orders_path=settings.fabric_sales_orders_path,
             customer_lookup_path=settings.fabric_customer_lookup_path,
+            customer_create_path=settings.fabric_customer_create_path,
             auth_header_name=settings.fabric_auth_header_name,
             auth_header_value_prefix=settings.fabric_auth_header_value_prefix,
         )
@@ -207,6 +212,57 @@ class FabricClient:
         if not isinstance(body, dict):
             raise FabricClientError(
                 f"customer lookup returned non-object payload: {type(body).__name__}"
+            )
+        return body
+
+    async def create_customer(
+        self,
+        *,
+        name: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a customer in the Fabric transaction service.
+
+        Used by the cashier UI when a lookup returns no match and the
+        cashier wants to register the customer (vs. just attaching
+        the typed info as an unregistered ride-along on the sale).
+
+        Mock mode returns a synthetic customer_id so dev boxes can
+        exercise the full create-attach UX without Fabric creds.
+        Production callers should reach a real Fabric instance.
+        """
+        if name is None and email is None and phone is None:
+            raise FabricClientError("at_least_one_field_required")
+        if self._client is None:
+            # Synthetic id stamps the same shape Fabric would return so
+            # the downstream code (attach + checkout serialization)
+            # doesn't branch on mock vs real.
+            return {
+                "customer_id": f"mock-{uuid.uuid4()}",
+                "display_name": name,
+                "email": email,
+                "phone": phone,
+                "registered": True,
+            }
+        payload: dict[str, Any] = {}
+        if name:
+            payload["name"] = name
+        if email:
+            payload["email"] = email
+        if phone:
+            payload["phone"] = phone
+        try:
+            response = await self._client.post(
+                self._customer_create_path, json=payload
+            )
+            response.raise_for_status()
+            body = response.json()
+        except httpx.HTTPError as exc:
+            raise FabricClientError(f"customer create failed: {exc}") from exc
+        if not isinstance(body, dict):
+            raise FabricClientError(
+                f"customer create returned non-object payload: {type(body).__name__}"
             )
         return body
 

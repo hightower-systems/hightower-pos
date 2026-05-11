@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     fabric_price_catalog_path: str = "/api/v1/prices/catalog"
     fabric_sales_orders_path: str = "/api/v1/sales_orders"
     fabric_customer_lookup_path: str = "/api/v1/customers/lookup"
+    fabric_customer_create_path: str = "/api/v1/customers"
     fabric_auth_header_name: str = "Authorization"
     fabric_auth_header_value_prefix: str = "Bearer "
 
