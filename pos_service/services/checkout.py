@@ -24,7 +24,7 @@ from pos_service.clients.windcave import (
 )
 from pos_service.config import Settings
 from pos_service.models import POSTransaction
-from pos_service.services import fabric_outbox, pricing
+from pos_service.services import fabric_outbox, pricing, till as till_service
 
 log = logging.getLogger(__name__)
 
@@ -401,6 +401,7 @@ async def _send_to_sentry(
 
     txn.status = "COMPLETE"
     txn.sentry_so_id = result.so_id
+    till_service.attribute_transaction(db, txn)
     fabric_outbox.enqueue(db, txn, settings=settings)
     db.commit()
 

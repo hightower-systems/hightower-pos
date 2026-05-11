@@ -22,7 +22,7 @@ from pos_service.clients.windcave import (
 )
 from pos_service.config import Settings
 from pos_service.models import POSTransaction
-from pos_service.services import fabric_outbox
+from pos_service.services import fabric_outbox, till as till_service
 from pos_service.services.checkout import CheckoutError
 
 log = logging.getLogger(__name__)
@@ -395,6 +395,14 @@ async def _send_refund_to_sentry(
     refund_txn.status = "COMPLETE"
     refund_txn.sentry_so_id = result.refund_so_id
     original.refund_transaction_id = refund_txn.id
+    # Refund attribution rule (per till plan + user clarification):
+    # the refund attributes to the currently-open shift, NOT the
+    # original sale's shift. A refund for yesterday's sale processed
+    # today decrements today's expected_closing. Cash refund flow
+    # adds to cash_refunds_cents; card refunds get the till_session_id
+    # stamp for the admin 'all transactions' view but don't move the
+    # cash math.
+    till_service.attribute_transaction(db, refund_txn, is_refund=True)
     fabric_outbox.enqueue(db, refund_txn, settings=settings)
     db.commit()
 

@@ -1,6 +1,16 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from pos_service.db import Base
@@ -43,12 +53,82 @@ class POSTransaction(Base):
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
+    # Stamped at PAYMENT_SUCCESS with whichever till session was open
+    # for the cashier at finalize time. Nullable so pre-feature
+    # transactions and any txn that completes when no till is open
+    # (defensive case) still persist; the till math sums only stamped
+    # rows.
+    till_session_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("till_sessions.id"), nullable=True, index=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class TillSession(Base):
+    __tablename__ = "till_sessions"
+    # Partial unique index: at most one OPEN session per cashier.
+    # Mirrors the production-side definition in alembic mig 0004 so
+    # tests built off Base.metadata.create_all enforce the same
+    # invariant.
+    __table_args__ = (
+        Index(
+            "idx_one_open_till_per_cashier",
+            "cashier_id",
+            unique=True,
+            sqlite_where=text("status = 'OPEN'"),
+            postgresql_where=text("status = 'OPEN'"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)  # UUID4
+    cashier_id: Mapped[str] = mapped_column(
+        String, ForeignKey("pos_users.username"), nullable=False, index=True
+    )
+    terminal_id: Mapped[str] = mapped_column(String, nullable=False)
+    # OPEN | CLOSED. A partial unique index on (cashier_id) WHERE
+    # status='OPEN' enforces one open session per cashier; see
+    # alembic mig 0004.
+    status: Mapped[str] = mapped_column(String, nullable=False, index=True)
+
+    # JSON: {"hundred": 1, "fifty": 2, "twenty": 5, ...}. The
+    # canonical denomination key set lives in services/till.py
+    # (DENOMINATIONS); writing one place keeps the React side and
+    # the PDF renderer in lockstep on key names.
+    opening_float_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    opening_denominations_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Populated at close. Nullable so the row is creatable in the
+    # OPEN state without bogus zero values that look like a real
+    # zero-cash close.
+    closing_count_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    closing_denominations_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expected_closing_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    variance_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Running tallies updated as cash transactions complete during
+    # the open session. Cash refunds DECREMENT cash_sales when the
+    # in-app refund flow is used (per till plan doc + user clarif:
+    # the v1 'refunds NOT reflected' note in the doc predates the
+    # built-and-shipping refund flow).
+    cash_sales_cents: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    cash_refunds_cents: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    transaction_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    cash_transaction_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    opened_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Filesystem path to the generated close-report PDF. Populated by
+    # services/till_pdf.py in Phase 2; left nullable in Phase 1.
+    pdf_path: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class POSUser(Base):
