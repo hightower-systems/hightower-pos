@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { useBookmarks } from "../src/store/bookmarks";
+import { BOOKMARK_COLORS, useBookmarks } from "../src/store/bookmarks";
 
 beforeEach(() => useBookmarks.getState().clear());
 afterEach(() => useBookmarks.getState().clear());
@@ -50,5 +50,28 @@ describe("bookmark store", () => {
     useBookmarks.getState().add("REEL-200", "Reel");
     useBookmarks.getState().clear();
     expect(useBookmarks.getState().items).toEqual([]);
+  });
+
+  it("cycleColor advances through the palette and wraps back to none", () => {
+    useBookmarks.getState().add("ROD-100", "Rod");
+    // New bookmarks start with no color set (color === undefined,
+    // which the cycler reads as 'none').
+    expect(useBookmarks.getState().items[0].color).toBeUndefined();
+    for (let i = 1; i < BOOKMARK_COLORS.length; i++) {
+      useBookmarks.getState().cycleColor("ROD-100");
+      expect(useBookmarks.getState().items[0].color).toBe(BOOKMARK_COLORS[i]);
+    }
+    // One more cycle wraps back to 'none'.
+    useBookmarks.getState().cycleColor("ROD-100");
+    expect(useBookmarks.getState().items[0].color).toBe("none");
+  });
+
+  it("cycleColor only mutates the targeted SKU", () => {
+    useBookmarks.getState().add("ROD-100", "Rod");
+    useBookmarks.getState().add("REEL-200", "Reel");
+    useBookmarks.getState().cycleColor("ROD-100");
+    const items = useBookmarks.getState().items;
+    expect(items.find((b) => b.sku === "ROD-100")?.color).toBe("red");
+    expect(items.find((b) => b.sku === "REEL-200")?.color).toBeUndefined();
   });
 });
