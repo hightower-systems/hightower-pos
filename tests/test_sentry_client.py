@@ -67,7 +67,7 @@ async def test_lookup_availability_by_barcode() -> None:
 @respx.mock
 async def test_lookup_availability_404_raises() -> None:
     respx.get(f"{BASE_URL}/api/v1/pos/availability").mock(
-        return_value=httpx.Response(404, json={"error": "item_not_found", "message": "no"})
+        return_value=httpx.Response(404, json={"error_kind": "item_not_found", "message": "no"})
     )
     with pytest.raises(SentryClientError) as exc:
         await _client().lookup_availability(sku="UNKNOWN")
@@ -186,7 +186,7 @@ async def test_create_pos_so_idempotent_replay_flag() -> None:
 async def test_create_pos_so_409_idempotency_conflict_raises() -> None:
     respx.post(f"{BASE_URL}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
-            409, json={"error": "idempotency_conflict", "existing_so_id": "SO-X"}
+            409, json={"error_kind": "idempotency_conflict", "existing_so_id": "SO-X"}
         )
     )
     with pytest.raises(SentryClientError) as exc:
@@ -201,9 +201,9 @@ async def test_create_pos_so_422_fulfillment_failed_raises() -> None:
         return_value=httpx.Response(
             422,
             json={
-                "error": "fulfillment_failed",
+                "error_kind": "fulfillment_failed",
                 "message": "Could not decrement inventory",
-                "failed_line_index": 0,
+                "details": {"failed_line_index": 0},
             },
         )
     )
@@ -211,6 +211,10 @@ async def test_create_pos_so_422_fulfillment_failed_raises() -> None:
         await _client().create_pos_so(_checkout_request())
     assert exc.value.status_code == 422
     assert exc.value.error_code == "fulfillment_failed"
+    # The human-readable message rides through as str(exc) so the
+    # cashier UI's last_error renders the actual reason, not the slug.
+    assert str(exc.value) == "Could not decrement inventory"
+    assert exc.value.response_body["details"]["failed_line_index"] == 0
 
 
 def _refund_request() -> RefundRequest:
@@ -261,7 +265,7 @@ async def test_create_pos_refund_returns_credit_memo_id() -> None:
 @respx.mock
 async def test_create_pos_refund_422_window_expired() -> None:
     respx.post(f"{BASE_URL}/api/v1/pos/refund").mock(
-        return_value=httpx.Response(422, json={"error": "refund_window_expired"})
+        return_value=httpx.Response(422, json={"error_kind": "refund_window_expired"})
     )
     with pytest.raises(SentryClientError) as exc:
         await _client().create_pos_refund(_refund_request())
@@ -313,7 +317,7 @@ async def test_retries_exhausted_raises() -> None:
 @respx.mock
 async def test_does_not_retry_4xx() -> None:
     route = respx.post(f"{BASE_URL}/api/v1/pos/checkout").mock(
-        return_value=httpx.Response(409, json={"error": "idempotency_conflict"})
+        return_value=httpx.Response(409, json={"error_kind": "idempotency_conflict"})
     )
     with pytest.raises(SentryClientError):
         await _client().create_pos_so(_checkout_request())
