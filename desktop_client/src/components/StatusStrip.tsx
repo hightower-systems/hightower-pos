@@ -1,13 +1,26 @@
 import { useDependencies } from "../api/health";
 import { usePrintAgentStatus } from "../api/printAgent";
+import { formatCents } from "../api/till";
 
 interface Props {
   cashier: { display_name: string };
   onSignOut: () => void;
   signOutPending?: boolean;
+  // When the cashier has an OPEN till, surface the opening float
+  // (so they know which session is in progress) and a Close Till
+  // button next to Sign Out. Both omitted when the till is closed.
+  till?: {
+    opening_float_cents: number;
+    onCloseTill: () => void;
+  } | null;
 }
 
-export function StatusStrip({ cashier, onSignOut, signOutPending = false }: Props) {
+export function StatusStrip({
+  cashier,
+  onSignOut,
+  signOutPending = false,
+  till = null,
+}: Props) {
   const deps = useDependencies();
   const printAgent = usePrintAgentStatus();
 
@@ -46,6 +59,23 @@ export function StatusStrip({ cashier, onSignOut, signOutPending = false }: Prop
           label="Print Agent"
           ok={printer?.printer_online ?? null}
         />
+        {till && (
+          <>
+            <span
+              data-testid="till-status"
+              className="font-mono text-xs uppercase tracking-wider text-slate-300"
+            >
+              Till: {formatCents(till.opening_float_cents)} open
+            </span>
+            <button
+              type="button"
+              onClick={till.onCloseTill}
+              className="rounded-card border border-brand-red bg-brand-red/20 px-3 py-1 font-mono text-xs font-semibold uppercase tracking-wider text-brand-cream hover:bg-brand-red/30"
+            >
+              Close Till
+            </button>
+          </>
+        )}
         <button
           type="button"
           onClick={onSignOut}
