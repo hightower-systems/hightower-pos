@@ -182,8 +182,14 @@ def session_pdf(
         db.commit()
         path_str = str(path)
 
+    # Inline disposition so the PDF renders in a new browser tab (so
+    # the cashier can hit Ctrl+P or visually verify the close report)
+    # rather than forcing a silent download into ~/Downloads. The
+    # filename still travels for Save-As naming if the cashier
+    # chooses to download.
     return FileResponse(
         path_str,
         media_type="application/pdf",
         filename=f"till-close-{session_id}.pdf",
+        content_disposition_type="inline",
     )

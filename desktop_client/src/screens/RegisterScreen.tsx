@@ -65,12 +65,14 @@ export function RegisterScreen({ user, onSignedOut }: Props) {
     void queryClient.invalidateQueries({ queryKey: ["me"] });
   }
 
-  function handleTillClosed(pdfUrl: string) {
-    // Per doc: PDF opens in a new tab, cashier hits Ctrl+P.
-    // Auto-logout after close since the cashier just ended their
-    // shift.
-    window.open(pdfUrl, "_blank", "noopener");
+  function handleDoneAfterClose() {
+    // Triggered by the cashier's explicit Sign Out click on the
+    // close-success screen. The PDF (if they wanted it) has already
+    // been opened in a new tab on their own gesture via the success
+    // screen's Print Report link.
     setCloseOpen(false);
+    void queryClient.invalidateQueries({ queryKey: ["till", "current"] });
+    void queryClient.invalidateQueries({ queryKey: ["me"] });
     logout.mutate(undefined, {
       onSettled: () => {
         onSignedOut();
@@ -129,7 +131,7 @@ export function RegisterScreen({ user, onSignedOut }: Props) {
       <CloseTillModal
         open={closeOpen}
         onClose={() => setCloseOpen(false)}
-        onClosed={handleTillClosed}
+        onDoneAfterClose={handleDoneAfterClose}
       />
     </div>
   );

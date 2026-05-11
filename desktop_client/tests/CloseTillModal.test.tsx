@@ -38,7 +38,7 @@ afterEach(() => {});
 describe("<CloseTillModal>", () => {
   it("returns null when open=false", () => {
     const { container } = renderWithQuery(
-      <CloseTillModal open={false} onClose={() => {}} onClosed={() => {}} />,
+      <CloseTillModal open={false} onClose={() => {}} onDoneAfterClose={() => {}} />,
     );
     expect(container).toBeEmptyDOMElement();
   });
@@ -46,7 +46,7 @@ describe("<CloseTillModal>", () => {
   it("computes variance live as the cashier types denominations", async () => {
     // expected = 100 + 45 - 5 = $140.00
     renderWithQuery(
-      <CloseTillModal open={true} onClose={() => {}} onClosed={() => {}} />,
+      <CloseTillModal open={true} onClose={() => {}} onDoneAfterClose={() => {}} />,
     );
     await waitFor(() =>
       expect(screen.getByText("$140.00")).toBeInTheDocument(),
@@ -62,7 +62,7 @@ describe("<CloseTillModal>", () => {
 
   it("shows SHORT and signed variance when counted < expected", async () => {
     renderWithQuery(
-      <CloseTillModal open={true} onClose={() => {}} onClosed={() => {}} />,
+      <CloseTillModal open={true} onClose={() => {}} onDoneAfterClose={() => {}} />,
     );
     await waitFor(() =>
       expect(screen.getByText("$140.00")).toBeInTheDocument(),
@@ -79,7 +79,7 @@ describe("<CloseTillModal>", () => {
 
   it("shows OVER and signed variance when counted > expected", async () => {
     renderWithQuery(
-      <CloseTillModal open={true} onClose={() => {}} onClosed={() => {}} />,
+      <CloseTillModal open={true} onClose={() => {}} onDoneAfterClose={() => {}} />,
     );
     await waitFor(() =>
       expect(screen.getByText("$140.00")).toBeInTheDocument(),
@@ -91,7 +91,7 @@ describe("<CloseTillModal>", () => {
     );
   });
 
-  it("posts denominations to /api/till/close and hands the pdf_url to onClosed", async () => {
+  it("posts denominations to /api/till/close and shows the success screen with Print Report + Sign Out", async () => {
     const seen: unknown[] = [];
     server.use(
       http.post(`${API}/api/till/close`, async ({ request }) => {
@@ -110,9 +110,9 @@ describe("<CloseTillModal>", () => {
         });
       }),
     );
-    const onClosed = vi.fn();
+    const onDone = vi.fn();
     renderWithQuery(
-      <CloseTillModal open={true} onClose={() => {}} onClosed={onClosed} />,
+      <CloseTillModal open={true} onClose={() => {}} onDoneAfterClose={onDone} />,
     );
     await waitFor(() =>
       expect(screen.getByText("$140.00")).toBeInTheDocument(),
@@ -122,8 +122,20 @@ describe("<CloseTillModal>", () => {
     await u.type(screen.getByLabelText("Count of $20"), "2");
     await u.click(screen.getByRole("button", { name: /^close till$/i }));
 
-    await waitFor(() => expect(onClosed).toHaveBeenCalledTimes(1));
-    expect(onClosed).toHaveBeenCalledWith("/api/till/sessions/sess-1/pdf");
+    // Success screen renders; onDoneAfterClose is NOT fired until
+    // the cashier explicitly clicks Sign Out (so the PDF link is a
+    // direct user gesture, not a deferred window.open).
+    await waitFor(() =>
+      expect(screen.getByTestId("close-till-success")).toBeInTheDocument(),
+    );
+    expect(onDone).not.toHaveBeenCalled();
+    const printLink = screen.getByRole("link", { name: /print report/i });
+    expect(printLink).toHaveAttribute("href", "/api/till/sessions/sess-1/pdf");
+    expect(printLink).toHaveAttribute("target", "_blank");
+
+    await u.click(screen.getByRole("button", { name: /sign out/i }));
+    expect(onDone).toHaveBeenCalledTimes(1);
+
     expect(seen).toEqual([
       {
         closing_denominations: expect.objectContaining({
@@ -142,7 +154,7 @@ describe("<CloseTillModal>", () => {
       ),
     );
     renderWithQuery(
-      <CloseTillModal open={true} onClose={() => {}} onClosed={() => {}} />,
+      <CloseTillModal open={true} onClose={() => {}} onDoneAfterClose={() => {}} />,
     );
     await waitFor(() => {
       expect(

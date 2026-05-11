@@ -12,7 +12,12 @@ import {
 interface Props {
   open: boolean;
   onClose: () => void;
-  onClosed: (pdfUrl: string) => void;
+  // Called when the cashier dismisses the success screen after a
+  // successful close. Parent uses this to sign the cashier out --
+  // signing them out happens AFTER they've had a chance to open the
+  // PDF on their own gesture (avoids popup blockers + accidental
+  // dropped-on-the-floor PDFs).
+  onDoneAfterClose: () => void;
 }
 
 /** Close-till modal with live denomination grid + reconciliation panel.
@@ -29,13 +34,20 @@ interface Props {
  * tab and signs the cashier out). Variance amount is recorded but
  * does NOT block the close per the doc guardrail.
  */
-export function CloseTillModal({ open, onClose, onClosed }: Props) {
+export function CloseTillModal({ open, onClose, onDoneAfterClose }: Props) {
   const [counts, setCounts] = useState<DenominationCounts>({});
   const [error, setError] = useState<string | null>(null);
+  // After a successful close, switch to a success screen so the
+  // cashier can open the PDF on their own click (popup-blocker safe)
+  // and explicitly sign out when they're done. Null = still on the
+  // input screen.
+  const [closed, setClosed] = useState<
+    null | { pdf_url: string; variance_cents: number }
+  >(null);
   // Refetch the running tallies every 30s while the modal is open
   // so a late cash sale in another tab (unlikely but possible)
   // doesn't desync the variance preview.
-  const current = useCurrentTill(open ? 30_000 : undefined);
+  const current = useCurrentTill(open && closed === null ? 30_000 : undefined);
   const closeTill = useCloseTill();
 
   const counted = useMemo(() => denominationsToCents(counts), [counts]);
@@ -59,7 +71,10 @@ export function CloseTillModal({ open, onClose, onClosed }: Props) {
     setError(null);
     closeTill.mutate(counts, {
       onSuccess: (response) => {
-        onClosed(response.pdf_url);
+        setClosed({
+          pdf_url: response.pdf_url,
+          variance_cents: response.variance_cents,
+        });
       },
       onError: (err) => {
         setError(err instanceof Error ? err.message : "Could not close till.");
@@ -68,6 +83,59 @@ export function CloseTillModal({ open, onClose, onClosed }: Props) {
   }
 
   if (!open) return null;
+
+  // Success screen: shown after the close commits. Two explicit
+  // buttons -- Print Report (opens the PDF in a new tab on the
+  // cashier's click, so no popup blocker) and Sign Out (which the
+  // parent maps to the auto-logout). Both are user gestures.
+  if (closed !== null) {
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Till Closed"
+        data-testid="close-till-success"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4"
+      >
+        <div className="w-full max-w-md rounded-card border border-surface-border bg-surface p-6 shadow-2xl">
+          <h2 className="font-mono text-base font-bold uppercase tracking-wider text-ink">
+            Till Closed
+          </h2>
+          <p className="mt-2 text-sm text-ink-muted">
+            Your shift is closed. Print the report for your records, then
+            sign out.
+          </p>
+          <div className="mt-4 rounded-card border border-surface-border bg-surface-card p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-sm font-bold uppercase tracking-wider text-ink">
+                Variance
+              </span>
+              <span className="font-mono text-lg font-bold text-ink">
+                {varianceLabel(closed.variance_cents)}
+              </span>
+            </div>
+          </div>
+          <div className="mt-5 flex items-center justify-end gap-3">
+            <a
+              href={closed.pdf_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-card border border-surface-border bg-surface px-4 py-2 font-mono text-sm font-bold uppercase tracking-wider text-ink hover:bg-surface-card"
+            >
+              Print Report
+            </a>
+            <button
+              type="button"
+              onClick={onDoneAfterClose}
+              className="rounded-card bg-brand-red px-4 py-2 font-mono text-sm font-bold uppercase tracking-wider text-brand-cream hover:brightness-110"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
