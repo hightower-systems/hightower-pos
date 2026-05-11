@@ -105,7 +105,7 @@ def _failed_refund_row(
 @respx.mock
 async def test_retry_failed_sales_succeeds(db: Session) -> None:
     txn = _failed_sale_row(db)
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200,
             json={"so_id": "SO-RECON-1", "so_number": "SO-RECON-1", "replayed": False},
@@ -128,7 +128,7 @@ async def test_retry_failed_sales_still_failing_increments_retry_count(
     db: Session,
 ) -> None:
     txn = _failed_sale_row(db)
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(422, json={"error": "fulfillment_failed"})
     )
     report = await reconciliation.retry_failed_sales(db, _client())
@@ -157,7 +157,7 @@ async def test_retry_failed_refunds_succeeds_and_links_parent(db: Session) -> No
     parent.sentry_so_id = "SO-PARENT"
     db.commit()
     refund = _failed_refund_row(db, parent_id=parent.id)
-    respx.post(f"{SENTRY_BASE}/api/pos/refund").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/refund").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -183,7 +183,7 @@ async def test_retry_failed_refunds_still_failing(db: Session) -> None:
     parent.status = "COMPLETE"
     db.commit()
     refund = _failed_refund_row(db, parent_id=parent.id, refund_id="ref-2")
-    respx.post(f"{SENTRY_BASE}/api/pos/refund").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/refund").mock(
         return_value=httpx.Response(422, json={"error": "fulfillment_failed"})
     )
     report = await reconciliation.retry_failed_refunds(db, _client())

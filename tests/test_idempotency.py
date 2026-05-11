@@ -19,7 +19,7 @@ def _login_cashier(client: TestClient, cashier: POSUser) -> None:
 def _seed_and_start(client: TestClient, db: Session) -> str:
     db.add(POSPrice(sku="WIDGET-001", unit_price_cents=1999))
     db.commit()
-    respx.post(f"{SENTRY_BASE}/api/pos/validate-cart").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/validate-cart").mock(
         return_value=httpx.Response(200, json={"valid": True})
     )
     started = client.post(
@@ -45,7 +45,7 @@ def test_double_charge_cash_blocked_by_state_machine(
 ) -> None:
     _login_cashier(client, cashier)
     txn_id = _seed_and_start(client, db)
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200, json={"so_id": "SO-1", "so_number": "SO-1", "replayed": False}
         )
@@ -72,7 +72,7 @@ def test_charge_cash_sends_idempotency_key_equal_to_transaction_id(
 ) -> None:
     _login_cashier(client, cashier)
     txn_id = _seed_and_start(client, db)
-    checkout_route = respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    checkout_route = respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200, json={"so_id": "SO-1", "so_number": "SO-1", "replayed": False}
         )
@@ -93,7 +93,7 @@ def test_sentry_replay_flag_does_not_break_completion(
 ) -> None:
     _login_cashier(client, cashier)
     txn_id = _seed_and_start(client, db)
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200,
             json={"so_id": "SO-EXISTING", "so_number": "SO-EXISTING", "replayed": True},

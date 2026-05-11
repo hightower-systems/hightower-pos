@@ -305,7 +305,7 @@ def _login_cashier(client: TestClient, cashier: POSUser) -> None:
 
 
 def _validate_cart_ok() -> None:
-    respx.post(f"{SENTRY_BASE}/api/pos/validate-cart").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/validate-cart").mock(
         return_value=httpx.Response(200, json={"valid": True})
     )
 
@@ -317,7 +317,7 @@ def test_checkout_status_includes_receipt_content_after_cash_sale(
     db.add(POSPrice(sku="WIDGET-001", unit_price_cents=1999))
     db.commit()
     _validate_cart_ok()
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200, json={"so_id": "SO-1", "so_number": "SO-1", "replayed": False}
         )
@@ -361,13 +361,13 @@ def test_refund_status_includes_receipt_content_after_cash_refund(
     db.add(POSPrice(sku="WIDGET-001", unit_price_cents=1999))
     db.commit()
     _validate_cart_ok()
-    respx.post(f"{SENTRY_BASE}/api/pos/checkout").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/checkout").mock(
         return_value=httpx.Response(
             200,
             json={"so_id": "SO-PARENT", "so_number": "SO-PARENT", "replayed": False},
         )
     )
-    respx.post(f"{SENTRY_BASE}/api/pos/refund").mock(
+    respx.post(f"{SENTRY_BASE}/api/v1/pos/refund").mock(
         return_value=httpx.Response(
             200,
             json={

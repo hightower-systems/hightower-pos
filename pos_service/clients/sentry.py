@@ -181,13 +181,14 @@ class SentryClient:
         if self._mock:
             return _mock_item_availability(sku=sku, barcode=barcode)
         params = {"barcode": barcode} if barcode else {"sku": sku}
-        r = await self._request("GET", "/api/pos/availability", params=params)
+        r = await self._request("GET", "/api/v1/pos/availability", params=params)
         if r.status_code == 404:
             body = _safe_json(r)
+            kind, msg = _error_from_body(body, 404, "item_not_found")
             raise SentryClientError(
-                "item_not_found",
+                msg,
                 status_code=404,
-                error_code=body.get("error", "item_not_found"),
+                error_code=kind,
                 response_body=body,
             )
         self._raise_for_status(r)
@@ -197,7 +198,7 @@ class SentryClient:
         if self._mock:
             return ValidationResult(valid=True)
         body = {"lines": [line.model_dump() for line in lines]}
-        r = await self._request("POST", "/api/pos/validate-cart", json=body)
+        r = await self._request("POST", "/api/v1/pos/validate-cart", json=body)
         if r.status_code == 409:
             payload = _safe_json(r)
             return ValidationResult.model_validate(payload)
@@ -213,15 +214,16 @@ class SentryClient:
             )
         r = await self._request(
             "POST",
-            "/api/pos/checkout",
-            json=request.model_dump(mode="json"),
+            "/api/v1/pos/checkout",
+            json=request.model_dump(mode="json", exclude_none=True),
         )
         if r.status_code in {409, 422}:
             body = _safe_json(r)
+            kind, msg = _error_from_body(body, r.status_code, "checkout_failed")
             raise SentryClientError(
-                body.get("error", "checkout_failed"),
+                msg,
                 status_code=r.status_code,
-                error_code=body.get("error"),
+                error_code=kind,
                 response_body=body,
             )
         self._raise_for_status(r)
@@ -236,15 +238,16 @@ class SentryClient:
             )
         r = await self._request(
             "POST",
-            "/api/pos/refund",
-            json=request.model_dump(mode="json"),
+            "/api/v1/pos/refund",
+            json=request.model_dump(mode="json", exclude_none=True),
         )
         if r.status_code in {409, 422}:
             body = _safe_json(r)
+            kind, msg = _error_from_body(body, r.status_code, "refund_failed")
             raise SentryClientError(
-                body.get("error", "refund_failed"),
+                msg,
                 status_code=r.status_code,
-                error_code=body.get("error"),
+                error_code=kind,
                 response_body=body,
             )
         self._raise_for_status(r)
@@ -278,7 +281,7 @@ class SentryClient:
         params: dict[str, Any] | None = None,
         json: Any = None,
     ) -> httpx.Response:
-        headers = {"Authorization": f"Bearer {self._token}"}
+        headers = {"X-WMS-Token": self._token}
         last_exc: Exception | None = None
         for attempt in range(MAX_RETRIES):
             try:
@@ -318,10 +321,11 @@ class SentryClient:
         if r.is_success:
             return
         body = _safe_json(r)
+        kind, msg = _error_from_body(body, r.status_code, f"sentry_returned_{r.status_code}")
         raise SentryClientError(
-            body.get("error", f"sentry returned {r.status_code}"),
+            msg,
             status_code=r.status_code,
-            error_code=body.get("error"),
+            error_code=kind,
             response_body=body,
         )
 
@@ -334,6 +338,22 @@ def _safe_json(r: httpx.Response) -> dict[str, Any]:
     if isinstance(body, dict):
         return body
     return {}
+
+
+def _error_from_body(
+    body: dict[str, Any], status_code: int, default_kind: str
+) -> tuple[str, str]:
+    """Pull (error_code, human_message) out of a Sentry error body.
+
+    Sentry's POS surface (v1.10+) returns {error_kind, message, details}.
+    Pre-POS endpoints used {error}. Read error_kind first, fall back to
+    error for compatibility, then to default_kind. message becomes the
+    str(exc) representation so the cashier UI's last_error renders the
+    actual reason ('insufficient stock at bin X') rather than the slug.
+    """
+    kind = body.get("error_kind") or body.get("error") or default_kind
+    msg = body.get("message") or kind
+    return kind, msg
 
 
 def _mock_item_availability(*, sku: str | None, barcode: str | None) -> ItemAvailability:
