@@ -9,12 +9,12 @@ attaching a customer (Phase D). The transaction service routes each call
 to the right Fabric-side table or platform; the POS Service does not talk
 to Fabric SQL directly.
 
-This shape is the result of the architecture call captured in
-/Users/michaelhightower/Downloads/AvidMaxmkv.txt -- earlier drafts had
-the POS Service opening a pyodbc connection to gl.dbo.* and writing
-schema-faithful payloads. The Fabric engineer's directive was 'send what
-you got, the transaction service will figure it out,' so the client is a
-thin httpx wrapper rather than a SQL+marshalling layer.
+This shape is the result of an early architecture call -- earlier
+drafts had the POS Service opening a pyodbc connection to gl.dbo.*
+and writing schema-faithful payloads. The Fabric engineer's directive
+was 'send what you got, the transaction service will figure it out,'
+so the client is a thin httpx wrapper rather than a SQL+marshalling
+layer.
 
 v1 surface:
     fetch_price_catalog() -> list[(sku, unit_price_cents)]

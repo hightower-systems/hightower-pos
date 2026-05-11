@@ -765,7 +765,7 @@ def test_render_close_report_fits_one_page_with_full_store_info_and_all_denoms(
         windcave_station="x",
         session_secret_key="test-key-32-bytes-long-padding-pad",
         database_url="sqlite:///:memory:",
-        store_name="AvidMax Centennial",
+        store_name="Hightower Centennial",
         store_address_line_1="1234 Main Street, Suite 200",
         store_address_line_2="Centennial, CO 80112",
         store_phone="(303) 555-0100",

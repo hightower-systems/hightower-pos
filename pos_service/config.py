@@ -17,12 +17,12 @@ class Settings(BaseSettings):
     sentry_initial_backoff_s: float = 0.5
 
     windcave_base_url: str = "https://sec.windcave.com/pxmi3/pos.aspx"
-    windcave_user: str = "AvidMax"
+    windcave_user: str = "Hightower"
     windcave_key: str = "replace-me"
     windcave_station: str = "replace-with-terminal-serial"
     windcave_vendor_id: str = "Hightower"
-    windcave_pos_name: str = "AvidMaxPOS"
-    windcave_device_id: str = "AvidMax-Reg1"
+    windcave_pos_name: str = "HightowerPOS"
+    windcave_device_id: str = "Hightower-Reg1"
     windcave_pos_version: str = "1.0.0"
     windcave_currency: str = "USD"
     windcave_timezone: str = "US MST"
@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     fabric_auth_header_name: str = "Authorization"
     fabric_auth_header_value_prefix: str = "Bearer "
 
-    store_name: str = "AvidMax"
+    store_name: str = "Hightower"
     store_address_line_1: str = ""
     store_address_line_2: str = ""
     store_phone: str = ""

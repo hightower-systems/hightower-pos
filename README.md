@@ -1,6 +1,8 @@
 # hightower-pos
 
-AvidMax in-store retail POS. Replaces TCS POS as part of the NetSuite -> Fabric/Sentry migration.
+In-store retail POS. Cashier-facing register that orchestrates
+checkout, card and cash payments via Windcave, receipt printing,
+inventory writes to Sentry, and sales-order writeback to Fabric.
 
 Three components, one repo:
 
@@ -145,6 +147,48 @@ never blocks a sale -- prices just age until the next refresh.
 Whichever wrote a given SKU most recently wins. The `updated_at`
 column on `pos_prices` records the last write so an admin can spot
 stale rows.
+
+### Till sessions
+
+Per-cashier shift tracking lives at `/api/till`. The cashier opens a
+till by counting their starting cash by denomination (`POST /open`),
+runs sales and refunds (each cash transaction stamps the open
+`till_session_id` and updates running totals), and closes by counting
+the drawer again (`POST /close`). The close computes:
+
+```
+expected_closing = opening_float + cash_sales - cash_refunds
+variance         = counted - expected_closing
+```
+
+Variance is recorded but does not block the close — accounting
+reconciles offline. A one-page PDF lands at
+`{TILL_PDF_ROOT}/YYYY/MM/{session_id}.pdf` (production:
+`/data/till_pdfs`, dev: `./till_pdfs`) and is served inline from
+`GET /api/till/sessions/{id}/pdf`. Admin reporting:
+
+```bash
+curl ".../api/till/sessions?status=CLOSED&from=2026-05-01"
+curl ".../api/till/sessions/{id}/transactions"
+```
+
+See `docs/cashier-runbook.md` for the cashier-facing flow,
+variance bands, and refund-attribution rules.
+
+### Users + Settings
+
+`/api/admin/users` exposes list / create / soft-delete /
+reset-password for POS cashiers. The Settings page in the React UI
+(accessible from the cashier register's header) wraps these with a
+Users table plus a Till Sessions admin view. The system has no role
+distinctions in v1 — any signed-in user can manage other users. Three
+self-protective rules prevent the obvious footguns: no
+self-deactivation, no last-active-user deactivation, no self-reset
+(use the existing `POST /api/auth/change-password` for that).
+
+Soft delete only: existing sessions are revalidated on every request
+via `is_active`, so deactivating a user invalidates their open
+session on the next API call.
 
 ### Reconciliation
 

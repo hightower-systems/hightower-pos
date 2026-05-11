@@ -111,7 +111,7 @@ def test_test_print_endpoint(
     r = client.post("/test-print", headers=headers)
     assert r.status_code == 200
     assert r.json()["success"] is True
-    assert any("AvidMax Print Agent" in line for line in fake_printer.printed)
+    assert any("Hightower Print Agent" in line for line in fake_printer.printed)
 
 
 def test_print_format_validation_rejects_unknown_format(

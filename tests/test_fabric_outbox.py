@@ -22,7 +22,7 @@ from pos_service.services.fabric_outbox import (
 def _make_settings() -> Settings:
     return Settings(
         windcave_currency="USD",
-        windcave_device_id="AvidMax-Reg1",
+        windcave_device_id="Hightower-Reg1",
     )
 
 
@@ -95,7 +95,7 @@ def test_build_payload_carries_register_currency_and_lean_shape():
     assert payload["fulfillment_channel"] == "Store"
     assert payload["status"] == "shipped"
     assert payload["source"] == "POS"
-    assert payload["register_id"] == "AvidMax-Reg1"
+    assert payload["register_id"] == "Hightower-Reg1"
     assert payload["currency"] == "USD"
     assert payload["payment_method"] == "card"
     assert payload["lines"] == [{"sku": "ROD-100", "quantity": 1}]

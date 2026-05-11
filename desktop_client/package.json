@@ -1,9 +1,9 @@
 {
   "name": "hightower-pos-desktop-client",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
-  "description": "AvidMax POS desktop client (React + Vite). Served from the POS Service in production; opened in Chrome --app= mode on the cashier desktop.",
+  "description": "Hightower POS desktop client (React + Vite). Served from the POS Service in production; opened in Chrome --app= mode on the cashier desktop.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

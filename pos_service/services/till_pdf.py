@@ -184,7 +184,7 @@ def render_close_report(
         return y_ - SECTION_HEAD_DROP
 
     # Store header
-    text(margin_left, y, settings.store_name or "AvidMax",
+    text(margin_left, y, settings.store_name or "Hightower",
          font="Helvetica-Bold", size=13)
     y -= 13
     if settings.store_address_line_1:

@@ -20,19 +20,19 @@ The cashier doesn't have to think about the agent after install. The
 agent runs every time they log into Windows.
 
 1. Install Python 3.11+ from python.org (tick **Add Python to PATH**).
-2. Copy this folder to the cashier desktop, e.g. `C:\AvidMax\pos-print-agent\`.
+2. Copy this folder to the cashier desktop, e.g. `C:\Hightower\pos-print-agent\`.
 3. Right-click `install.bat` and choose **Run as administrator**. The
    installer:
    - Creates a Python virtual environment and installs dependencies.
    - Copies `.env.example` to `.env` if one isn't there yet (edit
      `.env` afterwards if the printer USB ids or POS web app URL
      differ from defaults).
-   - Registers a Windows Task Scheduler task named **AvidMax POS Print
+   - Registers a Windows Task Scheduler task named **Hightower POS Print
      Agent** that launches the agent on every user logon, hidden
      (no console window).
    - Prints a small confirmation receipt to verify the wiring.
 4. Sign out and back in to start the agent automatically. To start it
-   now without signing out: `schtasks /Run /TN "AvidMax POS Print Agent"`.
+   now without signing out: `schtasks /Run /TN "Hightower POS Print Agent"`.
 
 A green tray icon appears in the system tray once the agent is up.
 Right-click for a menu: **Test print**, **Reconnect printer**, **Quit**.

@@ -61,7 +61,7 @@ def build_tray_icon(
     icon = pystray.Icon(
         "hightower-pos-print-agent",
         make_icon_image(online=True),
-        f"AvidMax POS Print Agent v{__version__}",
+        f"Hightower POS Print Agent v{__version__}",
         menu=pystray.Menu(
             pystray.MenuItem(_status_label, None, enabled=False),
             pystray.Menu.SEPARATOR,
