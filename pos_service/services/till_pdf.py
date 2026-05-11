@@ -140,17 +140,33 @@ def render_close_report(
     # Layout uses absolute positioning so the doc spec's column
     # alignment (denomination label | count | subtotal | rule | total)
     # holds across reportlab versions.
+    #
+    # Vertical sizing is tuned so a fully-populated report (all
+    # denominations non-zero, longest possible signature lines) fits
+    # within MIN_Y..START_Y. The render guard at the end of this
+    # function asserts that property -- if a future content addition
+    # pushes the layout off the page, tests catch it instead of
+    # reportlab silently clipping below y=0.
     margin_left = 0.75 * inch
     right_margin = width - 0.75 * inch
-    y = height - 0.75 * inch
+    MIN_Y = 0.5 * inch  # bottom margin
+    y = height - 0.65 * inch
+
+    # Row pitches (one place to tune layout density).
+    ROW_DENOM = 10    # denomination grid row
+    ROW_META = 11     # metadata block row
+    ROW_PROSE = 11    # activity / reconciliation prose row
+    SECTION_HEAD_DROP = 18  # hr line + label + space below
+    SUBTOTAL_DROP = 16      # space below 'Opening float' / 'Counted' summary
+    RULE_GAP = 10           # drop between text and a column subtotal rule
 
     def text(x: float, y_: float, s: str, *, font: str = "Helvetica",
-             size: int = 10) -> None:
+             size: int = 9) -> None:
         c.setFont(font, size)
         c.drawString(x, y_, s)
 
     def text_right(x: float, y_: float, s: str, *, font: str = "Courier",
-                   size: int = 10) -> None:
+                   size: int = 9) -> None:
         c.setFont(font, size)
         c.drawRightString(x, y_, s)
 
@@ -163,28 +179,27 @@ def render_close_report(
         c.setFont("Helvetica-Bold", 9)
         c.setFillColorRGB(0.3, 0.3, 0.3)
         text_w = c.stringWidth(label, "Helvetica-Bold", 9)
-        c.drawString((width - text_w) / 2, y_ - 12, label)
+        c.drawString((width - text_w) / 2, y_ - 11, label)
         c.setFillColorRGB(0, 0, 0)
-        return y_ - 24
+        return y_ - SECTION_HEAD_DROP
 
     # Store header
     text(margin_left, y, settings.store_name or "AvidMax",
-         font="Helvetica-Bold", size=14)
-    y -= 16
+         font="Helvetica-Bold", size=13)
+    y -= 13
     if settings.store_address_line_1:
         text(margin_left, y, settings.store_address_line_1)
-        y -= 12
+        y -= 11
     if settings.store_address_line_2:
         text(margin_left, y, settings.store_address_line_2)
-        y -= 12
+        y -= 11
     if settings.store_phone:
         text(margin_left, y, settings.store_phone)
-        y -= 12
-    y -= 8
+        y -= 11
 
     # Title
-    text(margin_left, y, "TILL CLOSE REPORT", font="Helvetica-Bold", size=14)
-    y -= 24
+    text(margin_left, y, "TILL CLOSE REPORT", font="Helvetica-Bold", size=13)
+    y -= 16
 
     # Metadata block
     metadata = [
@@ -198,13 +213,14 @@ def render_close_report(
     for label, value in metadata:
         text(margin_left, y, label, font="Helvetica-Bold")
         text(margin_left + 1.2 * inch, y, value, font="Courier")
-        y -= 14
-    y -= 8
+        y -= ROW_META
 
     def denomination_block(counts: dict[str, int]) -> int:
-        """Render one denomination grid. Mutates module-level y via
-        closure. Returns the total cents of the rendered block so
-        the caller can emit a 'Total: $X' line below."""
+        """Render one denomination grid and drop a horizontal rule
+        across the right column so the caller's subtotal line reads
+        as 'sum-of-the-above'. Mutates the enclosing y via closure;
+        on return, y is positioned for the subtotal text to be
+        drawn without overlapping the rule."""
         nonlocal y
         total = 0
         for name, value_cents in DENOMINATIONS:
@@ -214,10 +230,16 @@ def render_close_report(
             text(margin_left, y, DENOM_DISPLAY[name], font="Courier")
             text(margin_left + 1.0 * inch, y, f"x {qty}", font="Courier")
             text_right(right_margin, y, _format_cents(subtotal))
-            y -= 12
+            y -= ROW_DENOM
+        # Drop past the last row's descender, draw the rule below the
+        # subtotal column, then drop a full row before returning so
+        # the caller's subtotal text sits clearly below the rule (not
+        # crossed by it).
+        y -= RULE_GAP // 2
         c.setStrokeColorRGB(0, 0, 0)
         c.setLineWidth(0.5)
-        c.line(right_margin - 1.2 * inch, y + 4, right_margin, y + 4)
+        c.line(right_margin - 1.2 * inch, y, right_margin, y)
+        y -= ROW_PROSE
         return total
 
     # OPENING
@@ -226,7 +248,7 @@ def render_close_report(
     text(margin_left, y, "Opening float", font="Helvetica-Bold")
     text_right(right_margin, y, _format_cents(session.opening_float_cents),
                font="Courier-Bold")
-    y -= 24
+    y -= SUBTOTAL_DROP
 
     # ACTIVITY
     y = hr_label(y, "ACTIVITY")
@@ -239,8 +261,7 @@ def render_close_report(
     for label, value in activity_rows:
         text(margin_left, y, label)
         text_right(right_margin, y, value, font="Courier")
-        y -= 14
-    y -= 8
+        y -= ROW_PROSE
 
     # CLOSING
     y = hr_label(y, "CLOSING")
@@ -248,55 +269,71 @@ def render_close_report(
     text(margin_left, y, "Counted", font="Helvetica-Bold")
     text_right(right_margin, y, _format_cents(session.closing_count_cents),
                font="Courier-Bold")
-    y -= 24
+    y -= SUBTOTAL_DROP
 
     # RECONCILIATION
     y = hr_label(y, "RECONCILIATION")
     text(margin_left, y, "Opening float")
     text_right(right_margin, y, _format_cents(session.opening_float_cents),
                font="Courier")
-    y -= 14
+    y -= ROW_PROSE
     text(margin_left, y, "+ Cash sales")
     text_right(right_margin, y, _format_cents(session.cash_sales_cents),
                font="Courier")
-    y -= 14
+    y -= ROW_PROSE
     text(margin_left, y, "- Cash refunds")
     text_right(
         right_margin, y, _format_cents(-session.cash_refunds_cents),
         font="Courier",
     )
-    y -= 8
+    # Drop past the descender, draw the rule, drop another full row
+    # before the Expected/Actual lines so the rule doesn't cut their
+    # ascenders.
+    y -= RULE_GAP
     c.setStrokeColorRGB(0, 0, 0)
-    c.line(right_margin - 1.2 * inch, y + 4, right_margin, y + 4)
-    y -= 6
+    c.line(right_margin - 1.2 * inch, y, right_margin, y)
+    y -= ROW_PROSE
     text(margin_left, y, "Expected closing", font="Helvetica-Bold")
     text_right(
         right_margin, y, _format_cents(session.expected_closing_cents),
         font="Courier-Bold",
     )
-    y -= 14
+    y -= ROW_PROSE
     text(margin_left, y, "Actual closing", font="Helvetica-Bold")
     text_right(
         right_margin, y, _format_cents(session.closing_count_cents),
         font="Courier-Bold",
     )
-    y -= 8
-    c.line(right_margin - 1.2 * inch, y + 4, right_margin, y + 4)
-    y -= 8
-    text(margin_left, y, "VARIANCE", font="Helvetica-Bold", size=11)
+    # Second rule separates Actual from the VARIANCE summary; same
+    # gap shape as above.
+    y -= RULE_GAP
+    c.line(right_margin - 1.2 * inch, y, right_margin, y)
+    y -= ROW_PROSE
+    text(margin_left, y, "VARIANCE", font="Helvetica-Bold", size=10)
     text_right(
         right_margin, y, _variance_label(session.variance_cents),
-        font="Courier-Bold", size=11,
+        font="Courier-Bold", size=10,
     )
-    y -= 28
+    y -= 16
 
     # SIGNATURE
     y = hr_label(y, "SIGNATURE")
     text(margin_left, y, "Cashier signature:", font="Helvetica-Bold")
-    c.line(margin_left + 1.6 * inch, y - 2, right_margin, y - 2)
-    y -= 28
+    c.line(margin_left + 1.5 * inch, y - 2, right_margin, y - 2)
+    y -= 22
     text(margin_left, y, "Date:", font="Helvetica-Bold")
-    c.line(margin_left + 1.6 * inch, y - 2, right_margin, y - 2)
+    c.line(margin_left + 1.5 * inch, y - 2, right_margin, y - 2)
+    y -= 6  # final descender so the guard sees the bottom of the last line
+
+    # Page-fit guard. reportlab Canvas does not auto-paginate; content
+    # drawn at y < 0 silently disappears. Asserting here turns 'PDF
+    # silently clipped' into a test failure the next time the layout
+    # grows.
+    if y < MIN_Y:
+        raise RuntimeError(
+            f"till_pdf layout overflowed bottom margin: final y={y:.1f} "
+            f"(min={MIN_Y:.1f}). Tighten spacing or restructure sections."
+        )
 
     c.showPage()
     c.save()

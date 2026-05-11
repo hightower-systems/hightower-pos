@@ -604,6 +604,65 @@ def test_render_close_report_rejects_open_session(
         till_pdf.render_close_report(s, cashier, settings=settings)
 
 
+def test_render_close_report_fits_one_page_with_full_store_info_and_all_denoms(
+    db: Session, cashier: POSUser, tmp_path
+) -> None:
+    """Worst case for page-fit: store info populated (extra header
+    lines), every denomination non-zero in both opening and closing
+    (every denom row drawn), and a long display name. If the layout
+    overflows the bottom margin, the renderer raises -- this test
+    pins the guard.
+    """
+    from pos_service.config import Settings
+    from pos_service.services import till_pdf
+
+    settings = Settings(
+        sentry_base_url="http://x", sentry_api_token="x",
+        windcave_base_url="http://x", windcave_user="x", windcave_key="x",
+        windcave_station="x",
+        session_secret_key="test-key-32-bytes-long-padding-pad",
+        database_url="sqlite:///:memory:",
+        store_name="AvidMax Centennial",
+        store_address_line_1="1234 Main Street, Suite 200",
+        store_address_line_2="Centennial, CO 80112",
+        store_phone="(303) 555-0100",
+        till_pdf_root=str(tmp_path / "till_pdfs"),
+    )
+    cashier.display_name = "Maximilian Hightower-Featherstone"
+    db.commit()
+
+    full_denoms = {
+        "hundred": 3, "fifty": 5, "twenty": 12, "ten": 8, "five": 14,
+        "one": 47, "quarter": 60, "dime": 45, "nickel": 30, "penny": 99,
+    }
+    till_service.open_session(
+        db, cashier_id=cashier.username, terminal_id="REG-1",
+        opening_denominations=full_denoms,
+    )
+    # Run a cash sale + refund so activity counts/sums are non-zero.
+    sale = _make_txn(db, cashier.username, payment_method="cash", total_cents=12345)
+    till_service.attribute_transaction(db, sale)
+    refund = _make_txn(
+        db, cashier.username, payment_method="cash",
+        total_cents=678, txn_type="refund",
+    )
+    till_service.attribute_transaction(db, refund, is_refund=True)
+    db.commit()
+
+    session = till_service.close_session(
+        db, cashier_id=cashier.username,
+        closing_denominations=full_denoms,
+        settings=settings,
+    )
+    # Render either returned without raising (guard not triggered) OR
+    # the close-time swallow caught a render error. Re-run explicitly
+    # so we surface any guard failure rather than silently leaving
+    # pdf_path=None.
+    path = till_pdf.render_close_report(session, cashier, settings=settings)
+    assert path.exists()
+    assert path.read_bytes()[:5] == b"%PDF-"
+
+
 def test_format_cents_handles_sign_and_thousands_separator() -> None:
     """Variance can be negative; opening_float etc are always
     positive. The formatter handles both shapes."""
