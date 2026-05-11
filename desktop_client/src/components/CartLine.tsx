@@ -33,8 +33,8 @@ export function CartLine({ line }: Props) {
   return (
     <li className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-4 rounded-card border border-surface-border bg-surface-card px-4 py-3">
       <div className="min-w-0">
-        <div className="font-mono text-sm font-bold text-ink">{line.sku}</div>
-        <div className="truncate text-sm text-ink-muted">{line.name}</div>
+        <div className="truncate text-lg font-bold leading-tight text-ink">{line.name}</div>
+        <div className="font-mono text-xs font-semibold text-ink-muted">{line.sku}</div>
         <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-wider">
           <button
             type="button"
