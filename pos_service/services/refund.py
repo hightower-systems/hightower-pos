@@ -22,7 +22,8 @@ from pos_service.clients.windcave import (
 )
 from pos_service.config import Settings
 from pos_service.models import POSTransaction
-from pos_service.services import fabric_outbox, till as till_service
+from pos_service.services import fabric_outbox
+from pos_service.services import till as till_service
 from pos_service.services.checkout import CheckoutError
 
 log = logging.getLogger(__name__)

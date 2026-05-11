@@ -24,7 +24,8 @@ from pos_service.clients.windcave import (
 )
 from pos_service.config import Settings
 from pos_service.models import POSTransaction
-from pos_service.services import fabric_outbox, pricing, till as till_service
+from pos_service.services import fabric_outbox, pricing
+from pos_service.services import till as till_service
 
 log = logging.getLogger(__name__)
 

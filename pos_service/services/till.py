@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
