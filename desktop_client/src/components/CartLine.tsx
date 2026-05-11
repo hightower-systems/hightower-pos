@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { useBookmarks } from "../store/bookmarks";
+import { type BookmarkColor, useBookmarks } from "../store/bookmarks";
 import { type CartLine as CartLineType, formatCents, useCart } from "../store/cart";
 import { BinPicker } from "./BinPicker";
 import { SplitLineModal } from "./SplitLineModal";
@@ -13,13 +13,32 @@ interface Props {
 
 type OpenPicker = "warehouse" | "bin" | "split" | null;
 
+// Solid swatch class per bookmark color. Used by the inline color
+// cycle button on the cart line (alongside the Saved badge) so a
+// cashier who just bookmarked a SKU can color-tag it without
+// switching focus to the right pane.
+const SWATCH_CLASS: Record<BookmarkColor, string> = {
+  none: "bg-surface border-dashed",
+  red: "bg-red-500 border-red-500",
+  orange: "bg-orange-500 border-orange-500",
+  yellow: "bg-yellow-400 border-yellow-400",
+  green: "bg-green-500 border-green-500",
+  blue: "bg-blue-500 border-blue-500",
+  indigo: "bg-indigo-500 border-indigo-500",
+  violet: "bg-violet-500 border-violet-500",
+};
+
 export function CartLine({ line }: Props) {
   const removeLine = useCart((s) => s.removeLine);
   const setQuantity = useCart((s) => s.setQuantity);
   const addBookmark = useBookmarks((s) => s.add);
   const removeBookmark = useBookmarks((s) => s.remove);
+  const cycleBookmarkColor = useBookmarks((s) => s.cycleColor);
   const isBookmarked = useBookmarks((s) =>
     s.items.some((b) => b.sku === line.sku),
+  );
+  const bookmarkColor = useBookmarks(
+    (s) => s.items.find((b) => b.sku === line.sku)?.color ?? "none",
   );
   const [picker, setPicker] = useState<OpenPicker>(null);
 
@@ -81,6 +100,16 @@ export function CartLine({ line }: Props) {
           >
             {isBookmarked ? "Saved" : "Save"}
           </button>
+          {isBookmarked && (
+            <button
+              type="button"
+              onClick={() => cycleBookmarkColor(line.sku)}
+              aria-label={`Cycle bookmark color for ${line.sku} (current: ${bookmarkColor})`}
+              title={`Color: ${bookmarkColor}. Click to cycle.`}
+              data-testid={`cart-line-color-swatch-${line.sku}`}
+              className={`inline-block h-5 w-5 rounded-full border-2 align-middle transition hover:scale-110 ${SWATCH_CLASS[bookmarkColor]}`}
+            />
+          )}
           {oversold && (
             <span
               role="status"

@@ -14,7 +14,12 @@ import {
 // time. 'none' renders as a thin neutral divider so the bar still
 // reads as 'clickable target' even before a color is picked.
 const COLOR_BAR_CLASS: Record<BookmarkColor, string> = {
-  none: "bg-surface-border",
+  // 'none' is the unset state. A diagonal-stripe SVG pattern reads
+  // as 'clickable but blank' so the affordance is discoverable even
+  // before the cashier has picked a color (prior solid grey looked
+  // identical to the card border and disappeared).
+  none:
+    "bg-[repeating-linear-gradient(45deg,_theme(colors.surface.border)_0,_theme(colors.surface.border)_4px,_theme(colors.surface.card)_4px,_theme(colors.surface.card)_8px)]",
   red: "bg-red-500",
   orange: "bg-orange-500",
   yellow: "bg-yellow-400",
@@ -138,7 +143,8 @@ export function BookmarkPane() {
                     type="button"
                     onClick={() => cycleColor(bookmark.sku)}
                     aria-label={`Cycle color for ${bookmark.sku} (current: ${color})`}
-                    className={`block h-1.5 w-full transition-colors hover:brightness-110 ${COLOR_BAR_CLASS[color]}`}
+                    title="Click to color-tag this bookmark"
+                    className={`block h-2.5 w-full transition-all hover:brightness-110 ${COLOR_BAR_CLASS[color]}`}
                   />
                   <button
                     type="button"
