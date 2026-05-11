@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     store_address_line_2: str = ""
     store_phone: str = ""
 
+    # Root directory for generated till-close PDFs. Production deploys
+    # mount this at /data/till_pdfs so the files survive container
+    # restarts on the same Docker volume that holds pos.db. Dev/test
+    # overrides to a workspace-local dir via .env.
+    till_pdf_root: str = "/data/till_pdfs"
+
     session_secret_key: str = "replace-with-random-32-bytes-base64"
     session_ttl_hours: int = 12
 

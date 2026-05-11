@@ -30,7 +30,8 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from pos_service.models import POSTransaction, TillSession
+from pos_service.config import Settings
+from pos_service.models import POSTransaction, POSUser, TillSession
 
 log = logging.getLogger(__name__)
 
@@ -156,6 +157,7 @@ def close_session(
     *,
     cashier_id: str,
     closing_denominations: dict[str, int],
+    settings: Settings | None = None,
 ) -> TillSession:
     """Close the cashier's open session. 409 if none open.
 
@@ -163,6 +165,17 @@ def close_session(
     amount. Per the plan doc guardrail: forcing 'must balance' just
     teaches cashiers to fudge counts. Variance lives in the record
     and the PDF, accounting reconciles offline.
+
+    Synchronously renders the close-report PDF (Phase 2). PDF render
+    failures do NOT block the close -- the session row commits with
+    pdf_path=None and the PDF endpoint regenerates on first request.
+    Cashier expectation per the doc: PDF arrives immediately on
+    close, but a transient reportlab error doesn't trap them.
+
+    settings is optional so service-layer tests can exercise the
+    bookkeeping logic without forcing a PDF render path. The route
+    layer always passes settings; PDF render skips when settings is
+    None (kept on the session record, regenerable on first GET).
     """
     session = get_open_session(db, cashier_id)
     if session is None:
@@ -184,7 +197,33 @@ def close_session(
     session.closed_at = datetime.now(UTC).replace(tzinfo=None)
     db.commit()
     db.refresh(session)
+
+    if settings is not None:
+        _try_render_pdf(db, session, settings)
+
     return session
+
+
+def _try_render_pdf(db: Session, session: TillSession, settings: Settings) -> None:
+    """Render and persist pdf_path. Failure is logged + swallowed."""
+    user = db.get(POSUser, session.cashier_id)
+    if user is None:
+        # FK guarantees this can't happen in production. Defensive log
+        # so a future schema change doesn't silently skip PDF gen.
+        log.error("till_pdf_skipped_missing_user", extra={"sid": session.id})
+        return
+    # Local import so service-layer tests that don't care about PDF
+    # don't pay the reportlab import cost (reportlab parses fonts on
+    # import; non-trivial).
+    from pos_service.services import till_pdf
+
+    try:
+        path = till_pdf.render_close_report(session, user, settings=settings)
+    except Exception:
+        log.exception("till_pdf_render_failed", extra={"sid": session.id})
+        return
+    session.pdf_path = str(path)
+    db.commit()
 
 
 def attribute_transaction(

@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -17,7 +18,7 @@ from pos_service.models import POSUser
 
 
 @pytest.fixture
-def settings() -> Settings:
+def settings(tmp_path: Path) -> Settings:
     return Settings(
         sentry_base_url="http://sentry.test",
         sentry_api_token="test-token",
@@ -34,6 +35,10 @@ def settings() -> Settings:
         session_ttl_hours=1,
         database_url="sqlite:///:memory:",
         allowed_origins="http://localhost:5173",
+        # Per-test isolated PDF root so till_pdf tests don't share
+        # state and so we never write to the production /data path
+        # from a test runner.
+        till_pdf_root=str(tmp_path / "till_pdfs"),
     )
 
 

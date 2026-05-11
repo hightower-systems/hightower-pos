@@ -12,13 +12,16 @@ records pdf_path = None until Phase 2.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from pos_service import auth as auth_service
 from pos_service.config import Settings, get_settings
 from pos_service.db import get_db
-from pos_service.models import TillSession
+from pos_service.models import POSUser, TillSession
 from pos_service.schemas import (
     CloseTillRequest,
     CloseTillResponse,
@@ -95,6 +98,7 @@ def current_till(
 def close_till(
     body: CloseTillRequest,
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
     ctx: auth_service.AuthContext = Depends(auth_service.get_auth),
 ) -> CloseTillResponse:
     try:
@@ -102,6 +106,7 @@ def close_till(
             db,
             cashier_id=ctx.user.username,
             closing_denominations=body.closing_denominations,
+            settings=settings,
         )
     except till_service.TillError as exc:
         raise HTTPException(
@@ -130,12 +135,17 @@ def close_till(
 def session_pdf(
     session_id: str,
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
     ctx: auth_service.AuthContext = Depends(auth_service.get_auth),
-) -> Response:
-    """Stream the close-report PDF. Phase 1 is a placeholder that
-    returns 503 not_implemented when the session exists but the PDF
-    has not been generated (Phase 2 wires reportlab). 404 if no such
-    session, 404 if the session is still OPEN."""
+) -> FileResponse:
+    """Stream the close-report PDF.
+
+    404 if the session doesn't exist, belongs to another cashier, or
+    is still OPEN. On the happy path, stream from disk. If the file
+    is missing (close-time render failed, or the file was deleted
+    out from under us), regenerate on the fly -- the source of truth
+    is the session row, the PDF is derived data.
+    """
     session = db.get(TillSession, session_id)
     if session is None or session.cashier_id != ctx.user.username:
         # 404 (not 403) for the cross-user case so a token doesn't
@@ -149,13 +159,31 @@ def session_pdf(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": "session_not_closed"},
         )
-    if session.pdf_path is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"error": "pdf_not_yet_implemented"},
-        )
-    # Phase 2 wires the actual disk read + Response(content=..., media_type=...).
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail={"error": "pdf_not_yet_implemented"},
+
+    path_str = session.pdf_path
+    if path_str is None or not Path(path_str).exists():
+        # Regenerate. Pulls user for the cashier display name; the FK
+        # guarantees the row exists for any non-soft-deleted user.
+        user = db.get(POSUser, session.cashier_id)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"error": "cashier_not_found"},
+            )
+        from pos_service.services import till_pdf
+        try:
+            path = till_pdf.render_close_report(session, user, settings=settings)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"error": "pdf_render_failed"},
+            ) from None
+        session.pdf_path = str(path)
+        db.commit()
+        path_str = str(path)
+
+    return FileResponse(
+        path_str,
+        media_type="application/pdf",
+        filename=f"till-close-{session_id}.pdf",
     )

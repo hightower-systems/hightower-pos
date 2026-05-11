@@ -224,3 +224,7 @@ __marimo__/
 *.db-wal
 .idea/
 
+# Generated till close-report PDFs (dev/local writes here; prod writes
+# to /data/till_pdfs mounted on the Docker volume).
+till_pdfs/
+

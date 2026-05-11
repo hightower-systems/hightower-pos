@@ -398,18 +398,58 @@ def test_close_endpoint_409_when_no_open(
     assert r.json()["detail"]["error"] == "no_open_session"
 
 
-def test_pdf_endpoint_503_placeholder_after_close(
-    client: TestClient, cashier: POSUser
+def test_close_generates_pdf_and_endpoint_streams_it(
+    client: TestClient, cashier: POSUser, db: Session
 ) -> None:
     _login(client)
     client.post("/api/till/open", json={"opening_denominations": {"hundred": 1}})
     closed = client.post(
         "/api/till/close", json={"closing_denominations": {"hundred": 1}}
     ).json()
+
+    # Session row has pdf_path populated by the close-time render.
+    db.expire_all()  # drop the test session's cached row from before close
+    sess = db.get(TillSession, closed["session_id"])
+    assert sess is not None
+    assert sess.pdf_path is not None
+    from pathlib import Path
+    assert Path(sess.pdf_path).exists()
+
+    # PDF endpoint streams a real PDF.
     r = client.get(closed["pdf_url"])
-    # Phase 1 placeholder; Phase 2 will return 200 with the PDF body.
-    assert r.status_code == 503
-    assert r.json()["detail"]["error"] == "pdf_not_yet_implemented"
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+    # PDF spec magic: file starts with %PDF-1.x.
+    assert r.content[:5] == b"%PDF-"
+    assert len(r.content) > 500  # rough lower bound -- header + a few flowables
+
+
+def test_pdf_endpoint_regenerates_when_file_missing(
+    client: TestClient, cashier: POSUser, db: Session
+) -> None:
+    """Failure mode per guardrail: if close-time render failed (or
+    the file was deleted), the PDF endpoint regenerates synchronously
+    on first request. Source of truth is the session row, the PDF is
+    derived."""
+    _login(client)
+    client.post("/api/till/open", json={"opening_denominations": {"hundred": 1}})
+    closed = client.post(
+        "/api/till/close", json={"closing_denominations": {"hundred": 1}}
+    ).json()
+    db.expire_all()
+    sess = db.get(TillSession, closed["session_id"])
+    assert sess is not None and sess.pdf_path is not None
+    # Wipe the file as if close-time render had failed or someone
+    # deleted /data manually.
+    from pathlib import Path
+    Path(sess.pdf_path).unlink()
+    assert not Path(sess.pdf_path).exists()
+
+    r = client.get(closed["pdf_url"])
+    assert r.status_code == 200
+    assert r.content[:5] == b"%PDF-"
+    # File is back on disk.
+    assert Path(sess.pdf_path).exists()
 
 
 def test_pdf_endpoint_404_for_unknown_session(
@@ -495,3 +535,82 @@ def test_logout_no_warning_with_no_till(
     body = r.json()
     assert body["logged_out"] is True
     assert body.get("warning") is None
+
+
+# ---------------------------------------------------------------------------
+# PDF renderer (unit-level, doesn't go through the HTTP layer)
+# ---------------------------------------------------------------------------
+
+def test_render_close_report_writes_pdf_to_expected_path(
+    db: Session, cashier: POSUser, settings
+) -> None:
+    """Path follows {root}/{YYYY}/{MM}/{session_id}.pdf using closed_at."""
+    from pos_service.services import till_pdf
+
+    till_service.open_session(
+        db, cashier_id=cashier.username, terminal_id="REG-1",
+        opening_denominations={"hundred": 1, "twenty": 2},
+    )
+    session = till_service.close_session(
+        db, cashier_id=cashier.username,
+        closing_denominations={"hundred": 1, "twenty": 2},
+        settings=settings,
+    )
+
+    path = till_pdf.session_pdf_path(settings.till_pdf_root, session)
+    assert path.exists()
+    assert path.parent.name == f"{session.closed_at.month:02d}"
+    assert path.parent.parent.name == f"{session.closed_at.year:04d}"
+    assert path.suffix == ".pdf"
+
+    content = path.read_bytes()
+    assert content[:5] == b"%PDF-"
+
+
+def test_render_close_report_with_short_variance(
+    db: Session, cashier: POSUser, settings
+) -> None:
+    """A SHORT close still produces a valid PDF; variance line in the
+    body just reads 'SHORT -$X.XX'. Sanity-check that reportlab
+    doesn't refuse to render the negative number formatting."""
+    from pos_service.services import till_pdf
+
+    till_service.open_session(
+        db, cashier_id=cashier.username, terminal_id="REG-1",
+        opening_denominations={"hundred": 1},
+    )
+    session = till_service.close_session(
+        db, cashier_id=cashier.username,
+        closing_denominations={"fifty": 1, "twenty": 2},  # $90 vs $100
+        settings=settings,
+    )
+    assert session.variance_cents == -1000
+    path = till_pdf.session_pdf_path(settings.till_pdf_root, session)
+    assert path.exists() and path.read_bytes()[:5] == b"%PDF-"
+
+
+def test_render_close_report_rejects_open_session(
+    db: Session, cashier: POSUser, settings
+) -> None:
+    """The renderer guards against being handed an OPEN session --
+    the body references closing fields that are still None until
+    close commits."""
+    from pos_service.services import till_pdf
+    s = till_service.open_session(
+        db, cashier_id=cashier.username, terminal_id="REG-1",
+        opening_denominations={"hundred": 1},
+    )
+    with pytest.raises(ValueError):
+        till_pdf.render_close_report(s, cashier, settings=settings)
+
+
+def test_format_cents_handles_sign_and_thousands_separator() -> None:
+    """Variance can be negative; opening_float etc are always
+    positive. The formatter handles both shapes."""
+    from pos_service.services.till_pdf import _format_cents
+    assert _format_cents(0) == "$0.00"
+    assert _format_cents(50) == "$0.50"
+    assert _format_cents(2500) == "$25.00"
+    assert _format_cents(123456) == "$1,234.56"
+    assert _format_cents(-70) == "-$0.70"
+    assert _format_cents(-123456) == "-$1,234.56"
